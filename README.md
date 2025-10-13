@@ -1,5 +1,6 @@
 ## Hi there 👋
 
+# Hey this is Ajay G. Testing out the commits
 <!--
 **AG7-1/AG7-1** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
 
