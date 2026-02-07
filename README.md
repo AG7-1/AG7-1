@@ -1,4 +1,4 @@
-##Hi there 👋 I’m Ajay
+Hi there 👋 I’m Ajay
 
 I’m a student interested in tech, trading, and building things as I learn. Right now I’m experimenting with ideas and slowly putting projects together.
 
