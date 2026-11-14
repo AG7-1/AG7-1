@@ -8,14 +8,14 @@ import random
 import numpy as np
 from PIL import Image, ImageFilter
 
-from common import CFG, ROOT, THEMES, esc, github_data, window
+from common import CFG, HEADER, PHOSPHOR, ROOT, THEMES, esc, github_data, window
 
 P = CFG["portrait"]
 P_FONT = P.get("font_size", 8)          # small font = high-res portrait
 P_CW, P_LH = P_FONT * 0.6, P_FONT * 1.12
 I_FONT, I_CW, I_LH = 14, 8.4, 19
 INFO_COLS = CFG.get("info_width", 56)
-PAD, GAP, TOP = 28, 36, 34 + 22
+PAD, GAP, TOP = 34, 36, HEADER + 18
 LEVELS = [0.16, 0.3, 0.46, 0.64, 0.82, 1.0]
 
 
@@ -152,8 +152,8 @@ def build(theme, grid, gh):
   </g>
   <rect class="beam" x="{PAD - 6}" y="{py}" width="{pw + 12}" height="60" fill="url(#beam)"/>
 {info}'''
-    title = f"{CFG['username'].lower()}@github: ~/profile — zsh — {width}×{height}"
-    return window(theme, width, height, title, body, defs, style)
+    title = f"{CFG['username']} // PROFILE.SYS"
+    return window(theme, width, height, title, body, defs, style, accent=PHOSPHOR["portrait"], tag="CRT-01 · P4 BLUE")
 
 
 def main():

@@ -12,58 +12,63 @@ CACHE = ROOT / ".cache.json"
 
 FONT = "'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', 'Courier New', monospace"
 
+# One always-dark CRT theme: it looks right on GitHub's light AND dark pages.
+# Each card is a "monitor" with its own classic phosphor colour.
 THEMES = {
     "dark": {
-        "bg": "#0d1117", "bg2": "#161b22", "border": "#3a2a1f", "bar": "#16120f",
-        "text": "#e6edf3", "muted": "#8b7d70", "dots": "#3d3128",
-        "key": "#ffb347", "value": "#ffe8c7", "accent": "#ff8c1a", "title": "#ff5e1a",
-        "grad": ["#ff4d00", "#ff9500", "#ffd23f"],      # Arancio Argos -> gold
-        "car": ["#7fff00", "#c6ff4d", "#3ddc84"],       # Verde Mantis
-        "portrait": ["#89cff0", "#bfe6fa", "#ffffff"],  # baby blue -> white
-        "progress": ["#7c5cff", "#b49cff", "#f0b8ff"],  # lavender -> violet
-        "grid": "#ff6a00", "tile": "#1f1813",
-    },
-    "light": {
-        "bg": "#fffaf5", "bg2": "#fff1e3", "border": "#f0d9c2", "bar": "#fff1e3",
-        "text": "#24292f", "muted": "#8c7361", "dots": "#ecd6c1",
-        "key": "#b45309", "value": "#3b2412", "accent": "#d9480f", "title": "#c2410c",
-        "grad": ["#c2410c", "#ea580c", "#d97706"],
-        "car": ["#3f8f00", "#5fa800", "#2f7a3a"],
-        "portrait": ["#2f7fb8", "#5aa9de", "#8cc8ec"],
-        "progress": ["#5b3fd9", "#8257e6", "#b04fd6"],
-        "grid": "#ea580c", "tile": "#f5e6d8",
+        "bg": "#0a0e14", "bezel": "#05070a", "border": "#1c2633",
+        "text": "#c9d6e3", "muted": "#566475", "dots": "#1f2b38", "rule": "#16202b",
+        "key": "#7dd3fc", "value": "#eef7ff", "accent": "#bae6fd", "title": "#ffffff",
+        "portrait": ["#89cff0", "#bfe6fa", "#ffffff"],   # P4-style baby blue -> white
+        "car": ["#ff7a00", "#ffb000", "#ffd27a"],        # P3 amber
+        "progress": ["#22c55e", "#4ade80", "#d9ffe6"],   # P1 phosphor green
     },
 }
+PHOSPHOR = {"portrait": "#89cff0", "car": "#ffb000", "progress": "#4ade80"}
+HEADER = 44   # y where card content may start
 
 
 def esc(s):
     return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def window(theme, width, height, title, body, defs="", style=""):
-    """Wrap content in a macOS-style terminal window."""
-    t = THEMES[theme]
+def window(theme, width, height, title, body, defs="", style="", accent="#89cff0", tag="CRT-01"):
+    """Wrap content in a retro CRT monitor: bezel, scanlines, vignette, HUD corners."""
+    t = THEMES["dark"]
+    i = 6                                   # bezel thickness
+    sw, sh = width - 2 * i, height - 2 * i
+    corners = "".join(
+        f'<path d="M{x + dx * 14} {y} H{x} V{y + dy * 14}" fill="none" stroke="{accent}" stroke-opacity=".55" stroke-width="1.5"/>'
+        for x, y, dx, dy in [(i + 10, i + 38, 1, 1), (width - i - 10, i + 38, -1, 1),
+                             (i + 10, height - i - 10, 1, -1), (width - i - 10, height - i - 10, -1, -1)])
     return f'''<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="{width}" height="{height}" viewBox="0 0 {width} {height}" font-family="{FONT}">
 <defs>
-  <clipPath id="win"><rect width="{width}" height="{height}" rx="12"/></clipPath>
-  <pattern id="scan" width="4" height="3" patternUnits="userSpaceOnUse"><rect width="4" height="1" fill="{t["text"]}" opacity="0.035"/></pattern>
+  <clipPath id="scr"><rect x="{i}" y="{i}" width="{sw}" height="{sh}" rx="10"/></clipPath>
+  <pattern id="scan" width="4" height="3" patternUnits="userSpaceOnUse"><rect width="4" height="1.2" fill="#000" opacity=".28"/></pattern>
+  <radialGradient id="vig" cx="50%" cy="50%" r="75%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient>
+  <radialGradient id="glowbg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="{accent}" stop-opacity=".07"/><stop offset="1" stop-color="{accent}" stop-opacity="0"/></radialGradient>
   {defs}
 </defs>
 <style>
   text {{ white-space: pre; }}
+  .live {{ animation: live 1.6s step-end infinite; }}
+  @keyframes live {{ 50% {{ opacity: .15; }} }}
   @media (prefers-reduced-motion: reduce) {{ * {{ animation: none !important; opacity: 1 !important; }} }}
   {style}
 </style>
-<g clip-path="url(#win)">
-  <rect width="{width}" height="{height}" fill="{t["bg"]}"/>
-  <rect width="{width}" height="34" fill="{t["bar"]}"/>
-  <line x1="0" y1="34" x2="{width}" y2="34" stroke="{t["border"]}"/>
-  <circle cx="20" cy="17" r="6" fill="#ff5f57"/><circle cx="40" cy="17" r="6" fill="#febc2e"/><circle cx="60" cy="17" r="6" fill="#28c840"/>
-  <text x="{width / 2}" y="22" text-anchor="middle" font-size="13" fill="{t["muted"]}">{esc(title)}</text>
+<rect width="{width}" height="{height}" rx="14" fill="{t["bezel"]}" stroke="{t["border"]}"/>
+<g clip-path="url(#scr)">
+  <rect x="{i}" y="{i}" width="{sw}" height="{sh}" fill="{t["bg"]}"/>
+  <rect x="{i}" y="{i}" width="{sw}" height="{sh}" fill="url(#glowbg)"/>
+  <text x="{i + 18}" y="{i + 22}" font-size="12" font-weight="700" fill="{accent}" letter-spacing="1.5">▚ {esc(title)}</text>
+  <text x="{width - i - 34}" y="{i + 22}" font-size="11" fill="{t["muted"]}" text-anchor="end" letter-spacing="1.5">{esc(tag)}</text>
+  <circle class="live" cx="{width - i - 22}" cy="{i + 18}" r="4" fill="{accent}"/>
+  <line x1="{i + 18}" x2="{width - i - 18}" y1="{i + 32}" y2="{i + 32}" stroke="{t["rule"]}" stroke-dasharray="2 4"/>
   {body}
-  <rect y="34" width="{width}" height="{height - 34}" fill="url(#scan)" pointer-events="none"/>
+  {corners}
+  <rect x="{i}" y="{i}" width="{sw}" height="{sh}" fill="url(#scan)"/>
+  <rect x="{i}" y="{i}" width="{sw}" height="{sh}" fill="url(#vig)"/>
 </g>
-<rect x="0.5" y="0.5" width="{width - 1}" height="{height - 1}" rx="12" fill="none" stroke="{t["border"]}"/>
 </svg>
 '''
 
