@@ -1,0 +1,29 @@
+name: Update profile cards
+on:
+  schedule: [{ cron: "0 6 * * *" }]   # daily: refresh stats + 3D contribution city
+  workflow_dispatch:
+  push:
+    paths: [config.json, generate.py, progress.py, car.py, common.py, photo.png]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pillow numpy
+      - run: python generate.py && python progress.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Re-render car only when its code changed
+        if: github.event_name == 'push'
+        run: python car.py
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add *.svg .cache.json
+          git diff --staged --quiet || git commit -m "Update profile cards"
+          git push

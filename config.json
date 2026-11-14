@@ -1,0 +1,94 @@
+{
+  "username": "AG7-1",
+  "photo": "photo.png",
+  "portrait": {
+    "crop": [
+      600,
+      40,
+      1700,
+      1200
+    ],
+    "cols": 100,
+    "font_size": 8,
+    "gamma": 0.8
+  },
+  "info_width": 56,
+  "sections": [
+    {
+      "title": null,
+      "items": [
+        [
+          "Name",
+          "Ajay Gulati"
+        ],
+        [
+          "OS",
+          "macOS, Linux, iOS"
+        ],
+        [
+          "Host",
+          "Northeastern University"
+        ],
+        [
+          "Kernel",
+          "CS + Business, class of 2029"
+        ],
+        [
+          "IDE",
+          "VS Code, Xcode, Claude Code"
+        ],
+        [
+          "Status",
+          "Open to co-ops & internships"
+        ]
+      ]
+    },
+    {
+      "title": "Languages",
+      "items": [
+        [
+          "Languages.Programming",
+          "Swift, Python, Java, TypeScript"
+        ],
+        [
+          "Languages.Computer",
+          "HTML, CSS, JSON, SQL"
+        ],
+        [
+          "Hobbies",
+          "Cars, trading, building apps"
+        ],
+        [
+          "Dream.Garage",
+          "Lamborghini Aventador SVJ"
+        ]
+      ]
+    },
+    {
+      "title": "Projects",
+      "items": [
+        [
+          "WaveWall",
+          "Mac wallpaper that moves to Spotify"
+        ],
+        [
+          "demo-day-form",
+          "TypeScript web form"
+        ]
+      ]
+    },
+    {
+      "title": "Contact",
+      "items": [
+        [
+          "LinkedIn",
+          "linkedin.com/in/your-handle"
+        ],
+        [
+          "Website",
+          "coming soon"
+        ]
+      ]
+    }
+  ]
+}
