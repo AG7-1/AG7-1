@@ -3,7 +3,7 @@
 </a>
 
 <p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=17&pause=1400&color=89CFF0&center=true&vCenter=true&width=640&lines=%3E+CS+%2B+Business+%40+Northeastern+University;%3E+building+WaveWall+%E2%80%94+music-reactive+Mac+wallpapers;%3E+open+to+co-ops+%26+internships" alt="Typing intro">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&weight=600&size=17&pause=1400&color=89CFF0&center=true&vCenter=true&width=820&lines=%3E+CS+%2B+Business+%40+Northeastern+University;%3E+building+WaveWall+%E2%80%94+music-reactive+Mac+wallpapers;%3E+open+to+co-ops+%26+internships" alt="Typing intro">
 </p>
 
 <p align="center">

@@ -3,6 +3,7 @@
 Main profile card: your photo rendered in binary next to a neofetch-style info panel.
 Writes dark_mode.svg and light_mode.svg.   Run: python generate.py
 """
+import math
 import random
 
 import numpy as np
@@ -16,7 +17,7 @@ P_CW, P_LH = P_FONT * 0.6, P_FONT * 1.12
 I_FONT, I_CW, I_LH = 14, 8.4, 19
 INFO_COLS = CFG.get("info_width", 56)
 PAD, GAP, TOP = 34, 36, HEADER + 18
-LEVELS = [0.16, 0.3, 0.46, 0.64, 0.82, 1.0]
+LEVELS = [0.26, 0.38, 0.5, 0.64, 0.82, 1.0]
 
 
 # ---------------------------------------------------------------- portrait
@@ -27,7 +28,7 @@ def portrait_grid():
         img = img.crop(tuple(P["crop"]))
     cols = P.get("cols", 92)
     rows = round(cols * img.height / img.width * P_CW / P_LH)
-    img = img.filter(ImageFilter.UnsharpMask(radius=img.width // 40, percent=P.get("local_contrast", 220), threshold=0))
+    img = img.filter(ImageFilter.UnsharpMask(radius=img.width // 40, percent=int(P.get("local_contrast", 220)), threshold=0))
     img = img.filter(ImageFilter.UnsharpMask(radius=3, percent=150)).resize((cols, rows), Image.LANCZOS)
     a = np.asarray(img, dtype=float) / 255
     lum = a[..., 0] * 0.299 + a[..., 1] * 0.587 + a[..., 2] * 0.114
@@ -51,9 +52,9 @@ def portrait_svg(grid, theme, x0, y0):
                 continue
             if theme == "light":
                 v = 1 - v
-            v = 0.08 + 0.92 * v
+            v = 0.12 + 0.88 * v
             lvl = min(int(v * len(LEVELS)), len(LEVELS) - 1)
-            lines[lvl][c] = "." if lvl == 0 else ("1" if rng.random() < 0.3 + 0.5 * v else "0")
+            lines[lvl][c] = "1" if rng.random() < 0.3 + 0.5 * v else "0"
         parts = []
         for lvl, chars in enumerate(lines):
             s = "".join(chars)
@@ -67,6 +68,68 @@ def portrait_svg(grid, theme, x0, y0):
             out.append(f'<g class="pr" style="animation-delay:{r * 0.028:.3f}s" transform="translate(0 {y0 + r * P_LH:.1f})">'
                        + "".join(parts) + "</g>")
     return "\n".join(out)
+
+
+
+# ---------------------------------------------------------------- hologram background
+def head_box(grid, x0, y0):
+    """centre and width of the head, from the top 40% of the silhouette."""
+    rows = grid.shape[0]
+    ys, xs = np.nonzero(~np.isnan(grid[: int(rows * 0.42)]))
+    cx = x0 + (xs.min() + xs.max() + 1) / 2 * P_CW
+    cy = y0 + (ys.mean() + 1) * P_LH
+    return cx, cy, (xs.max() - xs.min() + 1) * P_CW
+
+
+def rain_svg(grid, x0, y0):
+    """static falling-binary columns behind the portrait, kept off the silhouette."""
+    rng = random.Random(11)
+    fs, cw, lh = 9, 9 * 0.6, 9 * 1.15
+    rows, cols = grid.shape
+    n_r, n_c = int(rows * P_LH / lh), int(cols * P_CW / cw)
+    tiers = [[[" "] * n_c for _ in range(n_r)] for _ in range(3)]
+    for c in range(0, n_c, 2):
+        for _ in range(rng.choice([0, 1, 1, 2])):
+            length, head = rng.randint(4, 14), rng.randint(0, n_r - 1)
+            for k in range(length):
+                r = head - k
+                if r < 0:
+                    break
+                gr = min(int(r * lh / P_LH), rows - 1)
+                gc = min(int(c * cw / P_CW), cols - 1)
+                if not np.isnan(grid[gr, gc]):
+                    continue
+                tier = 2 if k == 0 else (1 if k < length / 2 else 0)
+                tiers[tier][r][c] = rng.choice("01")
+    out = []
+    for tier, op in zip(tiers, (0.07, 0.13, 0.32)):
+        for r, chars in enumerate(tier):
+            s = "".join(chars)
+            if s.strip():
+                lead = len(s) - len(s.lstrip())
+                s = s.strip()
+                out.append(f'<text x="{x0 + lead * cw:.1f}" y="{y0 + fs + r * lh:.1f}" '
+                           f'textLength="{len(s) * cw:.1f}" fill-opacity="{op}">{s}</text>')
+    return f'<g class="rain" font-size="{fs}px">{"".join(out)}</g>'
+
+
+def hud_svg(cx, cy, fw):
+    """face-scan reticle around the head."""
+    r = fw * 0.56
+    ticks = []
+    for i, deg in enumerate(range(0, 360, 10)):
+        a = math.radians(deg)
+        r2 = r + (11 if i % 6 == 0 else 7)
+        ticks.append(f'<line x1="{cx + (r + 4) * math.cos(a):.1f}" y1="{cy + (r + 4) * math.sin(a):.1f}" '
+                     f'x2="{cx + r2 * math.cos(a):.1f}" y2="{cy + r2 * math.sin(a):.1f}" class="hud" stroke-opacity=".45"/>')
+    b, s = r * 0.85, 14
+    brackets = "".join(
+        f'<path d="M{cx + sx * b:.1f} {cy + sy * b - sy * s:.1f}V{cy + sy * b:.1f}H{cx + sx * b - sx * s:.1f}" '
+        f'class="hud" stroke-opacity=".8" stroke-width="1.5"/>' for sx in (-1, 1) for sy in (-1, 1))
+    return (f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{r:.1f}" class="hud" stroke-opacity=".28" stroke-dasharray="3 5"/>'
+            + "".join(ticks) + brackets
+            + f'<text x="{cx + r + 16:.1f}" y="{cy - r * 0.55:.1f}" class="hudt">FACE_ID</text>'
+            + f'<text x="{cx + r + 16:.1f}" y="{cy - r * 0.55 + 14:.1f}" class="hudt" fill-opacity=".6">AG7-1 · 100%</text>')
 
 
 # ---------------------------------------------------------------- info panel
@@ -124,33 +187,32 @@ def build(theme, grid, gh):
     py = TOP + max(0, (info_h - ph) / 2)
     info, _ = info_svg(lines, ix, TOP + I_FONT + max(0, (ph - info_h) / 2))
 
+    hx, hy, fw = head_box(grid, PAD, py)
     g0, g1, g2 = t["portrait"]
     defs = f'''
   <linearGradient id="pg" gradientUnits="userSpaceOnUse" x1="0" y1="{py}" x2="{PAD + pw}" y2="{py + ph}">
     <stop offset="0" stop-color="{g0}"/><stop offset="0.55" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/>
   </linearGradient>
-  <linearGradient id="beam" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0" stop-color="{g1}" stop-opacity="0"/><stop offset="0.5" stop-color="{g1}" stop-opacity="{0.16 if theme == 'dark' else 0.1}"/><stop offset="1" stop-color="{g1}" stop-opacity="0"/>
-  </linearGradient>
-  <filter id="glow" x="-5%" y="-5%" width="110%" height="110%">
-    <feGaussianBlur stdDeviation="1.6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-  </filter>'''
+  <radialGradient id="halo" gradientUnits="userSpaceOnUse" cx="{hx:.0f}" cy="{hy:.0f}" r="{pw * 0.55:.0f}">
+    <stop offset="0" stop-color="{g0}" stop-opacity=".22"/><stop offset=".5" stop-color="{g0}" stop-opacity=".07"/><stop offset="1" stop-color="{g0}" stop-opacity="0"/>
+  </radialGradient>'''
     style = f'''
   .pr {{ opacity: 0; animation: up .5s ease-out forwards; }}
   .in {{ opacity: 0; animation: fade .35s ease-out forwards; font-size: {I_FONT}px; }}
   .k {{ fill: {t["key"]}; }} .v {{ fill: {t["value"]}; }} .t {{ fill: {t["text"]}; }} .d {{ fill: {t["dots"]}; }}
   .a {{ fill: {t["accent"]}; font-weight: 700; }} .h {{ fill: {t["title"]}; font-weight: 700; }}
   .cur {{ fill: {t["accent"]}; animation: blink 1.1s step-end infinite; }}
-  .beam {{ animation: sweep 5s ease-in-out 2.2s infinite; opacity: 0; }}
+  .rain {{ fill: {g0}; }} .hud {{ stroke: {g0}; fill: none; }} .hudt {{ fill: {g0}; font-size: 10px; letter-spacing: 1.5px; }}
   @keyframes up {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
   @keyframes fade {{ from {{ opacity: 0; transform: translateX(-8px); }} to {{ opacity: 1; transform: none; }} }}
-  @keyframes blink {{ 50% {{ fill-opacity: 0; }} }}
-  @keyframes sweep {{ 0% {{ opacity: 1; transform: translateY(-60px); }} 70% {{ opacity: 1; transform: translateY({ph}px); }} 71%, 100% {{ opacity: 0; }} }}'''
+  @keyframes blink {{ 50% {{ fill-opacity: 0; }} }}'''
     body = f'''
+  <rect x="{PAD - 20}" y="{py - 10}" width="{pw + 40}" height="{ph + 20}" fill="url(#halo)"/>
+  {rain_svg(grid, PAD, py)}
+  {hud_svg(hx, hy, fw)}
   <g font-size="{P_FONT}px" font-weight="700" fill="url(#pg)">
 {portrait_svg(grid, theme, PAD, py + P_FONT)}
   </g>
-  <rect class="beam" x="{PAD - 6}" y="{py}" width="{pw + 12}" height="60" fill="url(#beam)"/>
 {info}'''
     title = f"{CFG['username']} // PROFILE.SYS"
     return window(theme, width, height, title, body, defs, style, accent=PHOSPHOR["portrait"], tag="CRT-01 · P4 BLUE")

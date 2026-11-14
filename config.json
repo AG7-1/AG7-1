@@ -10,7 +10,8 @@
     ],
     "cols": 100,
     "font_size": 8,
-    "gamma": 0.8
+    "gamma": 0.75,
+    "local_contrast": 140
   },
   "info_width": 56,
   "sections": [

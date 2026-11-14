@@ -14,11 +14,11 @@ import numpy as np
 
 from common import HEADER, PHOSPHOR, ROOT, THEMES, esc, window
 
-COLS, ROWS = 150, 54
-FONT = 7.0
+COLS, ROWS = 140, 50
+FONT = 7.4
 CW, LH = FONT * 0.6, FONT * 1.1
-FRAMES = 48
-LOOP = 8.0                       # seconds per revolution
+FRAMES = 96
+LOOP = 9.6                       # seconds per revolution
 ELEV, DIST, FOV = math.radians(16), 7.4, 0.8
 TARGET = np.array([0.0, 0, 0.12])
 EDGE, LIT, DIM = 1.0, 0.5, 0.22  # opacity tiers
@@ -241,7 +241,7 @@ def turntable(x0, y0):
         pts = np.stack([rad * np.cos(th), rad * np.sin(th), np.zeros_like(th)], -1)
         c, r = project(pts, 0.0)
         poly = " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(*to_screen(c, r, x0, y0)))
-        extra = f' class="spin" stroke-dasharray="{dash}"' if dash else ""
+        extra = f' stroke-dasharray="{dash}"' if dash else ""
         parts.append(f'<polygon{extra} points="{poly}" fill="none" stroke="url(#cg)" stroke-opacity="{op}" stroke-width="1.2"/>')
     return "".join(parts)
 
@@ -283,10 +283,8 @@ def build(frames):
   .f {{ opacity: 0; animation: fr {LOOP}s step-end infinite; }}
   @keyframes fr {{ 0% {{ opacity: 1; }} {pct:.3f}% {{ opacity: 0; }} 100% {{ opacity: 0; }} }}
   .t100 {{ fill: {g2}; }} .t50 {{ fill: {g2}; fill-opacity: .55; }} .t22 {{ fill: {g1}; fill-opacity: .45; }}
-  .spin {{ animation: dash {LOOP}s linear infinite; }}
-  @keyframes dash {{ to {{ stroke-dashoffset: -160; }} }}
-  .tach {{ opacity: .12; animation: rev 2.4s ease-in-out infinite alternate; }}
-  @keyframes rev {{ 0%, 35% {{ opacity: .12; }} 65%, 100% {{ opacity: 1; }} }}
+  .tach {{ opacity: .15; animation: rev {LOOP}s steps(1) infinite; }}
+  @keyframes rev {{ 0%, 100% {{ opacity: .15; }} 25%, 75% {{ opacity: 1; }} }}
   .hd {{ font-size: 20px; font-weight: 700; fill: {amber}; letter-spacing: 3px; }}
   .sk {{ font-size: 12px; fill: {t["muted"]}; letter-spacing: 2px; }}
   .sv {{ font-size: 13px; fill: {g2}; font-weight: 700; }}
