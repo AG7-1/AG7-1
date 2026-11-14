@@ -14,13 +14,14 @@ import numpy as np
 
 from common import HEADER, PHOSPHOR, ROOT, THEMES, esc, window
 
-COLS, ROWS = 140, 50
-FONT = 7.4
+COLS, ROWS = 200, 66
+FONT = 5.6
 CW, LH = FONT * 0.6, FONT * 1.1
-FRAMES = 96
-LOOP = 9.6                       # seconds per revolution
-ELEV, DIST, FOV = math.radians(16), 7.4, 0.8
-TARGET = np.array([0.0, 0, 0.12])
+DOOR_STEPS = 18                  # door positions between closed and open
+LOOP = 8.0                       # seconds per open/close cycle
+VIEW = math.radians(212)         # fixed front three-quarter camera
+ELEV, DIST, FOV = math.radians(13), 6.9, 0.8
+TARGET = np.array([-0.05, 0, 0.8])
 EDGE, LIT, DIM = 1.0, 0.5, 0.22  # opacity tiers
 
 
@@ -89,6 +90,9 @@ def car(p, door):
                               box(ps, [2.2, 0.95, 1.02], [0.18, 0.015, 0.08]),
                               box(ps, [2.12, 0.4, 0.98], [0.04, 0.02, 0.1])])
     d = np.minimum(d, wing)
+    mirror = np.minimum(box(ps, [-0.78, 1.08, 0.9], [0.09, 0.1, 0.045]),
+                        box(ps, [-0.74, 0.98, 0.87], [0.02, 0.06, 0.015]))   # mirror on a stalk
+    d = np.minimum(d, mirror)
 
     mat = np.zeros(len(p))
     hinge = np.array([-0.97, 0.98, 0.72])                          # scissor door
@@ -99,6 +103,7 @@ def car(p, door):
                                pd[:, 2] - np.interp(pd[:, 0], ROOF_X, ROOF_Z) + 0.02]) * 0.75
     is_door = panel < d
     d = np.minimum(d, panel)
+    mat = np.where(is_door, 6, mat)
 
     tyre = np.full(len(p), 9.0)
     rim = np.full(len(p), 9.0)
@@ -110,7 +115,8 @@ def car(p, door):
     mat = np.where(rim <= d + 1e-3, 3, mat)
     d = np.minimum(d, rim)
 
-    mat = np.where((z > 0.78) & (x > -1.0) & (x < 0.75) & ~is_door & (mat == 0), 2, mat)   # glass
+    mat = np.where((z > 0.78) & (x > -1.0) & (x < 0.75) & ~is_door & (mat == 0), 2, mat)
+    mat = np.where((mat == 6) & (z > 0.86), 2, mat)                        # door window   # glass
     hx, hy = x + 2.05, y - 0.62
     head = (z > 0.4) & (z < 0.62) & (((hx < 0) & (hx > -0.35) & (np.abs(np.abs(hy) + hx * 0.6) < 0.05))
                                      | ((hx >= 0) & (hx < 0.22) & (np.abs(hy) < 0.045)))
@@ -119,6 +125,8 @@ def car(p, door):
     mat = np.where((mat == 0) & (head | tail), 4, mat)
     louvre = (x > 1.05) & (x < 1.9) & (y < 0.5) & (z > 0.85) & (np.abs(((x - 1.05) % 0.17) - 0.085) < 0.03)
     mat = np.where((mat == 0) & louvre, 5, mat)
+    vents = (x > -1.85) & (x < -1.3) & (y > 0.2) & (y < 0.48) & (z > 0.5) & (np.abs(((x + 1.85) % 0.11) - 0.055) < 0.022)
+    mat = np.where((mat == 0) & vents, 5, mat)
     return d, mat
 
 
@@ -180,6 +188,7 @@ def render(angle, door):
         b = np.where(m == 4, EDGE, b)                       # lights glow
         b = np.where((m == 1) | (m == 5), np.nan, b)        # tyres / louvres = negative space
         b = np.where(m == 2, DIM, b)
+        b = np.where(m == 6, np.where(diff > 0.55, LIT, DIM), b)
         val[hit], nrm[hit], mats[hit] = b, n, m
 
     H = hit.reshape(ROWS, COLS)
@@ -195,26 +204,30 @@ def render(angle, door):
             both = H & Hn
             depth = np.abs(np.where(both, T - Tn, 0)) > 0.35
             crease = (N * Nn).sum(-1) < 0.55
-            edge |= both & (depth | crease | ((Mn != M) & (np.minimum(M, Mn) != 0) | ((M == 2) ^ (Mn == 2))))
+            edge |= both & (depth | crease | ((Mn != M) & (np.minimum(M, Mn) != 0) | ((M == 2) ^ (Mn == 2)) | ((M == 6) ^ (Mn == 6))))
     V = val.reshape(ROWS, COLS)
     return np.where(edge, EDGE, V)
 
 
 # ------------------------------------------------------------------ SVG
-def frame_svg(V, i, x0, y0, rng):
+def char_at(r, c, v):
+    """deterministic per cell, so a cell looks identical in every frame."""
+    h = (r * 7919 + c * 104729) % 100
+    if v == DIM:
+        return "·" if (r + c) % 2 == 0 else " "
+    if v == LIT:
+        return "·"
+    return "1" if h < 70 else "0"
+
+
+def layer_svg(V, x0, y0):
     out = []
     for r in range(ROWS):
         tiers = {EDGE: [" "] * COLS, LIT: [" "] * COLS, DIM: [" "] * COLS}
         for c in range(COLS):
             v = V[r, c]
-            if np.isnan(v):
-                continue
-            if v == DIM:
-                tiers[v][c] = "·" if (r + c) % 2 == 0 else " "       # faint dotted faces
-            elif v == LIT:
-                tiers[v][c] = "·"                                     # lit faces: solid dots
-            else:
-                tiers[v][c] = "1" if rng.random() < 0.7 else "0"
+            if not np.isnan(v):
+                tiers[v][c] = char_at(r, c, v)
         y = y0 + r * LH
         for v, chars in tiers.items():
             s = "".join(chars)
@@ -222,7 +235,38 @@ def frame_svg(V, i, x0, y0, rng):
                 lead = len(s) - len(s.lstrip())
                 s = s.strip()
                 out.append(f'<text x="{x0 + lead * CW:.1f}" y="{y:.1f}" textLength="{len(s) * CW:.1f}" class="t{int(v * 100)}">{s}</text>')
-    return f'<g class="f" style="animation-delay:{i * LOOP / FRAMES:.3f}s">{"".join(out)}</g>'
+    return "".join(out)
+
+
+def door_timeline(n):
+    """visibility windows (seconds) for each door state: hold shut, swing up, hold open, swing down."""
+    t_move, t_open = 1.1, 3.0
+    dt = t_move / (n - 1)
+    win = {i: [] for i in range(n)}
+    t0 = LOOP - (2 * t_move + t_open)              # time spent shut at the start
+    win[0].append((0, t0))
+    for i in range(1, n):                          # opening
+        s = t0 + (i - 1) * dt
+        win[i].append((s, s + dt if i < n - 1 else t0 + t_move + t_open))
+    tc = t0 + t_move + t_open
+    for k, i in enumerate(range(n - 2, -1, -1)):   # closing
+        s = tc + k * dt
+        win[i].append((s, s + dt if i > 0 else LOOP))
+    return win
+
+
+def keyframes(name, windows):
+    pts = {0.0: 0}
+    for s, e in windows:
+        pts[s] = 1
+        pts.setdefault(e, 0)
+        if pts.get(e) == 1 and e != s:
+            pts[e] = 0
+    if 0.0 in [s for s, _ in windows]:
+        pts[0.0] = 1
+    pts.setdefault(LOOP, pts[max(pts)])
+    body = " ".join(f"{100 * t / LOOP:.3f}% {{ opacity: {v}; }}" for t, v in sorted(pts.items()))
+    return f"@keyframes {name} {{ {body} }}"
 
 
 def to_screen(c, r, x0, y0):
@@ -234,12 +278,12 @@ def turntable(x0, y0):
     th = np.linspace(0, 2 * math.pi, 120)
     parts = []
     sh = np.stack([2.6 * np.cos(th), 1.25 * np.sin(th), np.zeros_like(th)], -1)
-    c, r = project(sh, 0.0)
+    c, r = project(sh, VIEW)
     parts.append('<polygon points="' + " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(*to_screen(c, r, x0, y0)))
-                 + '" fill="#000" fill-opacity=".5"/>')
-    for rad, op, dash in [(3.25, 0.3, "1 7"), (2.95, 0.55, "3 5"), (2.7, 0.9, "")]:
+                 + '" fill="url(#floor)"/>')
+    for rad, op, dash in []:
         pts = np.stack([rad * np.cos(th), rad * np.sin(th), np.zeros_like(th)], -1)
-        c, r = project(pts, 0.0)
+        c, r = project(pts, VIEW)
         poly = " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(*to_screen(c, r, x0, y0)))
         extra = f' stroke-dasharray="{dash}"' if dash else ""
         parts.append(f'<polygon{extra} points="{poly}" fill="none" stroke="url(#cg)" stroke-opacity="{op}" stroke-width="1.2"/>')
@@ -250,7 +294,7 @@ SPECS = [("MODEL", "Aventador SVJ"), ("ENGINE", "6.5L V12 · NA"), ("POWER", "77
          ("0-100", "2.8 s"), ("VMAX", "350+ km/h"), ("DOORS", "scissor ▲")]
 
 
-def build(frames):
+def build(states):
     t = THEMES["dark"]
     amber = PHOSPHOR["car"]
     g0, g1, g2 = t["car"]
@@ -259,9 +303,16 @@ def build(frames):
     px = pad + cw_px + 18
     width = round(px + 290 + 30)
     height = round(top + ch_px + 18)
-    rng = random.Random(5)
     y0 = top + FONT
-    frames_svg = "\n".join(frame_svg(V, i, pad, y0, rng) for i, V in enumerate(frames))
+    S = np.stack(states)
+    same = np.all((S == S[0]) | (np.isnan(S) & np.isnan(S[0])), axis=0)   # cells the doors never touch
+    static = np.where(same, S[0], np.nan)
+    win = door_timeline(len(states))
+    dyn, kfs = [], []
+    for i, V in enumerate(states):
+        dyn.append(f'<g class="s s{i}">{layer_svg(np.where(same, np.nan, V), pad, y0)}</g>')
+        kfs.append(keyframes(f"k{i}", win[i]) + f" .s{i} {{ animation: k{i} {LOOP}s step-end infinite; }}")
+    frames_svg = f'<g>{layer_svg(static, pad, y0)}</g>' + "".join(dyn)
 
     panel = [f'<text x="{px}" y="{top + 34}" class="hd">GARAGE.EXE</text>',
              f'<text x="{px}" y="{top + 54}" class="dim">dream_car = load("aventador.bin")</text>']
@@ -274,17 +325,15 @@ def build(frames):
     y += 14
     panel.append("".join(
         f'<rect class="tach" x="{px + j * 12}" y="{y}" width="8" height="16" rx="1" '
-        f'fill="{amber if j < 19 else "#ff3b30"}" style="animation-delay:{j * 0.06:.2f}s"/>' for j in range(24)))
-    panel.append(f'<text x="{px}" y="{y + 38}" class="dim">RPM ×1000 · {LOOP:.0f}s/rev · {FRAMES} frames</text>')
+        f'fill="{amber if j < 19 else "#ff3b30"}" fill-opacity="{1 if j < 15 else .15}"/>' for j in range(24)))
+    panel.append(f'<text x="{px}" y="{y + 38}" class="dim">idle · 6.5L V12 · doors cycle every {LOOP:.0f}s</text>')
 
-    defs = f'<linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{g0}"/><stop offset=".5" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/></linearGradient>'
-    pct = 100 / FRAMES
+    defs = f'<radialGradient id="floor"><stop offset="0" stop-color="{g1}" stop-opacity=".16"/><stop offset=".6" stop-color="{g1}" stop-opacity=".05"/><stop offset="1" stop-color="{g1}" stop-opacity="0"/></radialGradient>' + f'<linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{g0}"/><stop offset=".5" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/></linearGradient>'
     style = f'''
-  .f {{ opacity: 0; animation: fr {LOOP}s step-end infinite; }}
-  @keyframes fr {{ 0% {{ opacity: 1; }} {pct:.3f}% {{ opacity: 0; }} 100% {{ opacity: 0; }} }}
+  .s {{ opacity: 0; }}
+  {" ".join(kfs)}
   .t100 {{ fill: {g2}; }} .t50 {{ fill: {g2}; fill-opacity: .55; }} .t22 {{ fill: {g1}; fill-opacity: .45; }}
-  .tach {{ opacity: .15; animation: rev {LOOP}s steps(1) infinite; }}
-  @keyframes rev {{ 0%, 100% {{ opacity: .15; }} 25%, 75% {{ opacity: 1; }} }}
+  .tach {{ opacity: 1; }}
   .hd {{ font-size: 20px; font-weight: 700; fill: {amber}; letter-spacing: 3px; }}
   .sk {{ font-size: 12px; fill: {t["muted"]}; letter-spacing: 2px; }}
   .sv {{ font-size: 13px; fill: {g2}; font-weight: 700; }}
@@ -300,15 +349,15 @@ def build(frames):
 
 
 def main():
-    frames = []
-    for i in range(FRAMES):
-        ang = math.radians(210) + 2 * math.pi * i / FRAMES
-        door = min(1, (0.5 - 0.5 * math.cos(2 * math.pi * i / FRAMES)) * 1.6)
-        frames.append(render(ang, door))
-        print(f"\rframe {i + 1}/{FRAMES}", end="", flush=True)
+    states = []
+    for i in range(DOOR_STEPS):
+        u = i / (DOOR_STEPS - 1)
+        door = 0.5 - 0.5 * math.cos(math.pi * u)        # ease in/out
+        states.append(render(VIEW, door))
+        print(f"\rstate {i + 1}/{DOOR_STEPS}", end="", flush=True)
     print()
     path = ROOT / "car_dark.svg"
-    path.write_text(build(frames))
+    path.write_text(build(states))
     print(f"wrote {path.name} ({path.stat().st_size // 1024} KB)")
 
 

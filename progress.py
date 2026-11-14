@@ -82,10 +82,10 @@ def dial(cal, g):
         fan.append(f'<path d="M{CX} {CY}L{p0[0]:.1f} {p0[1]:.1f}A{R1} {R1} 0 0 1 {p1[0]:.1f} {p1[1]:.1f}Z" fill="{g[1]}" fill-opacity="{0.22 * (1 - j / 14):.3f}"/>')
     tip = polar(R1, 0)
     fan.append(f'<line x1="{CX}" y1="{CY}" x2="{tip[0]:.1f}" y2="{tip[1]:.1f}" stroke="{g[2]}" stroke-width="1.6"/>')
-    out.append(f'<g class="sweep">{"".join(fan)}</g>')
+    out.append(f'<g transform="rotate({360 * (n - 0.5) / n:.1f} {CX} {CY})">{"".join(fan)}</g>')   # beam parked on today
     # today marker
     tx, ty = polar(R0, 2 * math.pi * (n - 0.5) / n)
-    out.append(f'<circle class="ping" cx="{tx:.1f}" cy="{ty:.1f}" r="4" fill="{g[2]}"/>')
+    out.append(f'<circle cx="{tx:.1f}" cy="{ty:.1f}" r="7" fill="{g[2]}" fill-opacity=".18"/><circle cx="{tx:.1f}" cy="{ty:.1f}" r="3.5" fill="{g[2]}"/>')
     return "\n".join(out)
 
 
@@ -141,10 +141,6 @@ def build(gh):
     style = f'''
   .sp {{ opacity: 0; animation: grow .5s ease-out forwards; }}
   @keyframes grow {{ to {{ opacity: 1; }} }}
-  .sweep {{ transform-origin: {CX}px {CY}px; animation: spin 6s linear infinite; }}
-  @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
-  .ping {{ transform-box: fill-box; transform-origin: center; animation: ping 1.6s ease-out infinite; }}
-  @keyframes ping {{ 0% {{ transform: scale(1); opacity: 1; }} 100% {{ transform: scale(3); opacity: 0; }} }}
   .ro {{ opacity: 0; animation: grow .4s ease-out forwards; }}
   .trace {{ animation: draw 2.4s ease-out .8s forwards; }}
   @keyframes draw {{ to {{ stroke-dashoffset: 0; }} }}

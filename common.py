@@ -51,8 +51,6 @@ def window(theme, width, height, title, body, defs="", style="", accent="#89cff0
 </defs>
 <style>
   text {{ white-space: pre; }}
-  .live {{ animation: live 1.6s step-end infinite; }}
-  @keyframes live {{ 50% {{ opacity: .15; }} }}
   @media (prefers-reduced-motion: reduce) {{ * {{ animation: none !important; opacity: 1 !important; }} }}
   {style}
 </style>

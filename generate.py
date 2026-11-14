@@ -201,7 +201,7 @@ def build(theme, grid, gh):
   .in {{ opacity: 0; animation: fade .35s ease-out forwards; font-size: {I_FONT}px; }}
   .k {{ fill: {t["key"]}; }} .v {{ fill: {t["value"]}; }} .t {{ fill: {t["text"]}; }} .d {{ fill: {t["dots"]}; }}
   .a {{ fill: {t["accent"]}; font-weight: 700; }} .h {{ fill: {t["title"]}; font-weight: 700; }}
-  .cur {{ fill: {t["accent"]}; animation: blink 1.1s step-end infinite; }}
+  .cur {{ fill: {t["accent"]}; }}
   .rain {{ fill: {g0}; }} .hud {{ stroke: {g0}; fill: none; }} .hudt {{ fill: {g0}; font-size: 10px; letter-spacing: 1.5px; }}
   @keyframes up {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
   @keyframes fade {{ from {{ opacity: 0; transform: translateX(-8px); }} to {{ opacity: 1; transform: none; }} }}
