@@ -3,7 +3,7 @@ on:
   schedule: [{ cron: "0 6 * * *" }]   # daily: refresh stats + 3D contribution city
   workflow_dispatch:
   push:
-    paths: [config.json, generate.py, progress.py, car.py, extras.py, common.py, photo.png, car.png, car_closed.png]
+    paths: [config.json, generate.py, progress.py, car.py, extras.py, common.py, photo.png, car.png]
 permissions:
   contents: write
 jobs:
