@@ -13,8 +13,7 @@ from common import CFG, HEADER, PHOSPHOR, ROOT, THEMES, esc, github_data, window
 
 W = 1000
 PITCH, R = 15.6, 5.0           # LED spacing and radius
-LEVELS = [(0, "BOOTING"), (25, "APPRENTICE"), (100, "BUILDER"), (250, "SHIPPER"),
-          (500, "ENGINEER"), (1000, "ARCHITECT"), (2500, "LEGEND")]
+LEVELS = [(0, ""), (25, ""), (100, ""), (250, ""), (500, ""), (1000, ""), (2500, "")]   # XP thresholds
 
 
 def stats(cal):
@@ -103,10 +102,10 @@ def build(gh):
                   for i in range(segs))
     xp_panel = f'''
   <text x="{x0 - 24}" y="{by + 18}" class="lbl">DEVELOPER LEVEL</text>
-  <text x="{x0 - 24}" y="{by + 44}" class="lv">LVL {lvl:02d}<tspan class="lvn"> · {name}</tspan></text>
+  <text x="{x0 - 24}" y="{by + 44}" class="lv">LEVEL {lvl:02d}<tspan class="lvn">  ▲ leveling up</tspan></text>
   {bar}
   <text x="{x0 - 24}" y="{by + 92}" class="xp">{st["total"]} / {nxt_xp} XP</text>
-  <text x="{x0 - 24 + segs * sw - 3:.1f}" y="{by + 92}" class="xp" text-anchor="end">NEXT ▸ LVL {lvl + 1:02d} · {nxt_name}</text>
+  <text x="{x0 - 24 + segs * sw - 3:.1f}" y="{by + 92}" class="xp" text-anchor="end">NEXT ▸ LEVEL {lvl + 1:02d}</text>
   <text x="{x0 - 24}" y="{by + 110}" class="ml">1 contribution = 1 XP · resets never</text>'''
 
     best_d, best_c = st["best"]
