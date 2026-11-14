@@ -1,347 +1,113 @@
 #!/usr/bin/env python3
 """
-Garage card: an Aventador-style wedge rendered in binary like an 80s vector display.
+Garage card: a photo of a Lamborghini Aventador rendered in amber binary.
 
-The car is an implicit 3D model (sharp facets, like the real thing) raymarched with numpy.
-Panel edges and silhouettes glow brightest; faces are dim phosphor. It spins on a static
-turntable while the scissor doors open and close. Writes car_dark.svg.
-Run: python car.py
+Same idea as the portrait: brightness picks how bright each 0/1 is, and edges in the
+photo are boosted so panel lines, intakes and the scissor doors read crisply.
+It scans in once on load, then stays completely still. Writes car_dark.svg.
+Run: python car.py          (car.png = background-removed photo, see tools/subject_cutout.swift)
 """
-import math
-import random
-
 import numpy as np
+from PIL import Image, ImageFilter
 
 from common import HEADER, PHOSPHOR, ROOT, THEMES, esc, window
 
-COLS, ROWS = 200, 66
-FONT = 5.6
+COLS = 228
+FONT = 5.0
 CW, LH = FONT * 0.6, FONT * 1.1
-DOOR_STEPS = 18                  # door positions between closed and open
-LOOP = 8.0                       # seconds per open/close cycle
-VIEW = math.radians(212)         # fixed front three-quarter camera
-ELEV, DIST, FOV = math.radians(13), 6.9, 0.8
-TARGET = np.array([-0.05, 0, 0.8])
-EDGE, LIT, DIM = 1.0, 0.5, 0.22  # opacity tiers
+LEVELS = [0.2, 0.34, 0.5, 0.68, 0.85, 1.0]
 
 
-# ------------------------------------------------------------------ shape helpers
-def box(p, c, h):
-    q = np.abs(p - c) - h
-    return np.linalg.norm(np.maximum(q, 0), axis=-1) + np.minimum(q.max(-1), 0)
+def car_grid():
+    img = Image.open(ROOT / "car.png").convert("RGBA")
+    img = img.crop(img.getchannel("A").getbbox())
+    rows = round(COLS * img.height / img.width * CW / LH)
+    img = img.filter(ImageFilter.UnsharpMask(radius=4, percent=160, threshold=0))
+    small = img.resize((COLS, rows), Image.LANCZOS)
+    a = np.asarray(small, dtype=float) / 255
+    lum = a[..., 0] * 0.299 + a[..., 1] * 0.587 + a[..., 2] * 0.114
+    fg = a[..., 3] > 0.45
+    tone = np.clip((lum - 0.04) / 0.72, 0, 1) ** 1.25                # keep the photo's real contrast
+    # edges: Sobel on luminance, so outlines glow brightest
+    gx = np.zeros_like(lum); gy = np.zeros_like(lum)
+    gx[:, 1:-1] = lum[:, 2:] - lum[:, :-2]
+    gy[1:-1, :] = lum[2:, :] - lum[:-2, :]
+    mag = np.hypot(gx, gy)
+    edge = mag > np.percentile(mag[fg], 90)
+    sil = fg & ~(np.roll(fg, 1, 0) & np.roll(fg, -1, 0) & np.roll(fg, 1, 1) & np.roll(fg, -1, 1))
+    v = 0.08 + 0.8 * tone
+    v = np.where(edge | sil, 1.0, v)
+    v = np.where((tone < 0.06) & ~(edge | sil), np.nan, v)          # black tyres / intakes = negative space
+    return np.where(fg, v, np.nan)
 
 
-def cyl_y(p, c, r, hw):
-    q = p - c
-    d = np.stack([np.hypot(q[:, 0], q[:, 2]) - r, np.abs(q[:, 1]) - hw], -1)
-    return np.minimum(d.max(-1), 0) + np.linalg.norm(np.maximum(d, 0), axis=-1)
-
-
-def hex2d(qx, qz, r):
-    """hexagon with flat top/bottom (Aventador wheel arches are hexagonal)."""
-    k = (-0.8660254, 0.5, 0.57735)
-    ax, az = np.abs(qz), np.abs(qx)          # rotate 90° so a flat edge sits on top
-    dot = np.minimum(k[0] * ax + k[1] * az, 0)
-    ax, az = ax - 2 * dot * k[0], az - 2 * dot * k[1]
-    ax = ax - np.clip(ax, -k[2] * r, k[2] * r)
-    az = az - r
-    return np.hypot(ax, az) * np.sign(az)
-
-
-def rot_xz(p, pivot, ang):
-    q = p - pivot
-    c, s = math.cos(ang), math.sin(ang)
-    return np.stack([c * q[:, 0] - s * q[:, 2], q[:, 1], s * q[:, 0] + c * q[:, 2]], -1) + pivot
-
-
-# ------------------------------------------------------------------ the car
-# x: nose (-) -> tail (+), y: side, z: up. ~4.8 m long, 2.1 m wide, 1.13 m tall.
-ROOF_X = [-2.42, -2.25, -1.05, 0.15, 0.55, 1.15, 1.95, 2.4]
-ROOF_Z = [0.40, 0.48, 0.70, 1.13, 1.13, 1.02, 0.92, 0.86]     # one unbroken wedge line nose->roof
-PLAN_X = [-2.42, -2.15, -1.55, 1.55, 2.4]
-PLAN_W = [0.52, 0.84, 1.0, 1.04, 0.94]
-WHEELS = [(-1.45, 0.86, 0.15), (1.42, 0.88, 0.19)]
-WR = 0.36
-
-
-def side_w(x, z):
-    w = np.interp(x, PLAN_X, PLAN_W)
-    return w - np.maximum(0, z - 0.6) * 1.05 - np.maximum(0, 0.3 - z) * 0.7   # tumblehome + undercut
-
-
-def car(p, door):
-    """(distance-ish, material) material: 0 paint, 1 tyre, 2 glass, 3 rim, 4 light, 5 vent."""
-    x, y, z = p[:, 0], np.abs(p[:, 1]), p[:, 2]
-    ps = np.stack([x, y, z], -1)
-
-    top = np.interp(x, ROOF_X, ROOF_Z)
-    d = np.maximum.reduce([z - top, 0.14 - z, y - side_w(x, z), np.abs(x) - 2.42]) * 0.75
-
-    for wx, _, _ in WHEELS:                                         # hexagonal arches
-        d = np.maximum(d, -np.maximum(hex2d(x - wx, z - WR, WR + 0.12), 0.6 - y))
-    intake = np.maximum(box(ps, [0.82, 1.08, 0.56], [0.36, 0.2, 0.2]),
-                        0.3 * (x - 0.82) - (z - 0.56) - 0.05)          # wedge side intake
-    d = np.maximum(d, -intake)
-    d = np.maximum(d, -box(ps, [-2.3, 0.6, 0.27], [0.22, 0.26, 0.07]))  # front intakes
-    if door > 0.05:                                                 # door aperture
-        d = np.maximum(d, -box(ps, [-0.35, 1.05, 0.78], [0.62, 0.32, 0.26]))
-
-    wing = np.minimum.reduce([box(ps, [2.2, 0, 1.08], [0.17, 0.95, 0.02]),    # SVJ wing
-                              box(ps, [2.2, 0.95, 1.02], [0.18, 0.015, 0.08]),
-                              box(ps, [2.12, 0.4, 0.98], [0.04, 0.02, 0.1])])
-    d = np.minimum(d, wing)
-    mirror = np.minimum(box(ps, [-0.78, 1.08, 0.9], [0.09, 0.1, 0.045]),
-                        box(ps, [-0.74, 0.98, 0.87], [0.02, 0.06, 0.015]))   # mirror on a stalk
-    d = np.minimum(d, mirror)
-
-    mat = np.zeros(len(p))
-    hinge = np.array([-0.97, 0.98, 0.72])                          # scissor door
-    pd = rot_xz(ps, hinge, -door * math.radians(72))
-    panel = np.maximum.reduce([np.abs(pd[:, 1] - side_w(pd[:, 0], pd[:, 2]) + 0.02) - 0.03,
-                               np.abs(pd[:, 0] + 0.35) - 0.62,
-                               np.abs(pd[:, 2] - 0.78) - 0.27,
-                               pd[:, 2] - np.interp(pd[:, 0], ROOF_X, ROOF_Z) + 0.02]) * 0.75
-    is_door = panel < d
-    d = np.minimum(d, panel)
-    mat = np.where(is_door, 6, mat)
-
-    tyre = np.full(len(p), 9.0)
-    rim = np.full(len(p), 9.0)
-    for wx, wy, hw in WHEELS:
-        tyre = np.minimum(tyre, cyl_y(ps, np.array([wx, wy, WR]), WR, hw))
-        rim = np.minimum(rim, cyl_y(ps, np.array([wx, wy + 0.012, WR]), WR * 0.62, hw))
-    mat = np.where(tyre < d, 1, mat)
-    d = np.minimum(d, tyre)
-    mat = np.where(rim <= d + 1e-3, 3, mat)
-    d = np.minimum(d, rim)
-
-    mat = np.where((z > 0.78) & (x > -1.0) & (x < 0.75) & ~is_door & (mat == 0), 2, mat)
-    mat = np.where((mat == 6) & (z > 0.86), 2, mat)                        # door window   # glass
-    hx, hy = x + 2.05, y - 0.62
-    head = (z > 0.4) & (z < 0.62) & (((hx < 0) & (hx > -0.35) & (np.abs(np.abs(hy) + hx * 0.6) < 0.05))
-                                     | ((hx >= 0) & (hx < 0.22) & (np.abs(hy) < 0.045)))
-    tx, ty = z - 0.68, y - 0.66
-    tail = (x > 2.3) & (y > 0.4) & (((ty >= 0) & (np.abs(np.abs(tx) - ty * 0.55) < 0.04)) | ((ty < 0) & (np.abs(tx) < 0.035)))
-    mat = np.where((mat == 0) & (head | tail), 4, mat)
-    louvre = (x > 1.05) & (x < 1.9) & (y < 0.5) & (z > 0.85) & (np.abs(((x - 1.05) % 0.17) - 0.085) < 0.03)
-    mat = np.where((mat == 0) & louvre, 5, mat)
-    vents = (x > -1.85) & (x < -1.3) & (y > 0.2) & (y < 0.48) & (z > 0.5) & (np.abs(((x + 1.85) % 0.11) - 0.055) < 0.022)
-    mat = np.where((mat == 0) & vents, 5, mat)
-    return d, mat
-
-
-# ------------------------------------------------------------------ renderer
-ASPECT = (ROWS * LH) / (COLS * CW)
-
-
-def camera(angle):
-    ro = TARGET + DIST * np.array([math.cos(angle) * math.cos(ELEV), math.sin(angle) * math.cos(ELEV), math.sin(ELEV)])
-    fwd = (TARGET - ro) / np.linalg.norm(TARGET - ro)
-    right = np.cross(fwd, [0, 0, 1]); right /= np.linalg.norm(right)
-    return ro, fwd, right, np.cross(right, fwd)
-
-
-def project(pts, angle):
-    """world points -> (col, row) cell coordinates (inverse of the ray setup)."""
-    ro, fwd, right, up = camera(angle)
-    v = pts - ro
-    zc = v @ fwd
-    gx = (v @ right) / zc / FOV
-    gy = (v @ up) / zc / FOV
-    return gx * COLS + COLS / 2 - 0.5, -gy / ASPECT * ROWS + ROWS / 2 - 0.5
-
-
-def render(angle, door):
-    """grid of opacity tiers (NaN = empty). Edges get the brightest tier."""
-    ro, fwd, right, up = camera(angle)
-    xs = (np.arange(COLS) - COLS / 2 + 0.5) / COLS
-    ys = (np.arange(ROWS) - ROWS / 2 + 0.5) / ROWS * ASPECT
-    gx, gy = np.meshgrid(xs, -ys)
-    rd = fwd + (gx[..., None] * right + gy[..., None] * up) * FOV
-    rd = (rd / np.linalg.norm(rd, axis=-1, keepdims=True)).reshape(-1, 3)
-    n_rays = len(rd)
-
-    t = np.zeros(n_rays)
-    hit = np.zeros(n_rays, bool)
-    alive = np.ones(n_rays, bool)
-    for _ in range(180):
-        idx = np.where(alive)[0]
-        if not len(idx):
-            break
-        dd, _ = car(ro + rd[idx] * t[idx, None], door)
-        t[idx] += np.maximum(dd, 0.003)
-        h = dd < 0.003
-        hit[idx[h]] = True
-        alive[idx[h | (t[idx] > 14)]] = False
-
-    val = np.full(n_rays, np.nan)
-    nrm = np.zeros((n_rays, 3))
-    mats = np.full(n_rays, -1.0)
-    if hit.any():
-        p = ro + rd[hit] * t[hit, None]
-        n = np.stack([car(p + v, door)[0] - car(p - v, door)[0] for v in np.eye(3) * 0.004], -1)
-        n /= np.linalg.norm(n, axis=-1, keepdims=True) + 1e-9
-        _, m = car(p, door)
-        light = np.array([-0.35, 0.5, 0.8]); light /= np.linalg.norm(light)
-        diff = np.clip(n @ light, 0, 1)
-        b = np.where(diff > 0.55, LIT, DIM)
-        b = np.where(m == 4, EDGE, b)                       # lights glow
-        b = np.where((m == 1) | (m == 5), np.nan, b)        # tyres / louvres = negative space
-        b = np.where(m == 2, DIM, b)
-        b = np.where(m == 6, np.where(diff > 0.55, LIT, DIM), b)
-        val[hit], nrm[hit], mats[hit] = b, n, m
-
-    H = hit.reshape(ROWS, COLS)
-    T = np.where(hit, t, 1e6).reshape(ROWS, COLS)
-    N = nrm.reshape(ROWS, COLS, 3)
-    M = mats.reshape(ROWS, COLS)
-    edge = np.zeros_like(H)
-    for k, (dy, dx) in enumerate([(0, 1), (1, 0), (0, -1), (-1, 0)]):
-        sh = lambda A: np.roll(np.roll(A, dy, 0), dx, 1)
-        Hn, Tn, Nn, Mn = sh(H), sh(T), sh(N), sh(M)
-        edge |= H & ~Hn                                            # silhouette (all sides)
-        if k < 2:                                                  # interior lines: one-sided -> 1 char thick
-            both = H & Hn
-            depth = np.abs(np.where(both, T - Tn, 0)) > 0.35
-            crease = (N * Nn).sum(-1) < 0.55
-            edge |= both & (depth | crease | ((Mn != M) & (np.minimum(M, Mn) != 0) | ((M == 2) ^ (Mn == 2)) | ((M == 6) ^ (Mn == 6))))
-    V = val.reshape(ROWS, COLS)
-    return np.where(edge, EDGE, V)
-
-
-# ------------------------------------------------------------------ SVG
-def char_at(r, c, v):
-    """deterministic per cell, so a cell looks identical in every frame."""
-    h = (r * 7919 + c * 104729) % 100
-    if v == DIM:
-        return "·" if (r + c) % 2 == 0 else " "
-    if v == LIT:
-        return "·"
-    return "1" if h < 70 else "0"
-
-
-def layer_svg(V, x0, y0):
+def car_svg(grid, x0, y0):
+    rows, cols = grid.shape
     out = []
-    for r in range(ROWS):
-        tiers = {EDGE: [" "] * COLS, LIT: [" "] * COLS, DIM: [" "] * COLS}
-        for c in range(COLS):
-            v = V[r, c]
-            if not np.isnan(v):
-                tiers[v][c] = char_at(r, c, v)
-        y = y0 + r * LH
-        for v, chars in tiers.items():
+    for r in range(rows):
+        lines = [[" "] * cols for _ in LEVELS]
+        for c in range(cols):
+            v = grid[r, c]
+            if np.isnan(v):
+                continue
+            lvl = min(int(v * len(LEVELS)), len(LEVELS) - 1)
+            h = (r * 7919 + c * 104729) % 100
+            lines[lvl][c] = "1" if h < 30 + 50 * v else "0"
+        parts = []
+        for lvl, chars in enumerate(lines):
             s = "".join(chars)
             if s.strip():
                 lead = len(s) - len(s.lstrip())
                 s = s.strip()
-                out.append(f'<text x="{x0 + lead * CW:.1f}" y="{y:.1f}" textLength="{len(s) * CW:.1f}" class="t{int(v * 100)}">{s}</text>')
-    return "".join(out)
+                parts.append(f'<text x="{x0 + lead * CW:.1f}" textLength="{len(s) * CW:.1f}" fill-opacity="{LEVELS[lvl]}">{s}</text>')
+        if parts:
+            out.append(f'<g class="cr" style="animation-delay:{r * 0.022:.3f}s" transform="translate(0 {y0 + r * LH:.1f})">{"".join(parts)}</g>')
+    return "\n".join(out)
 
 
-def door_timeline(n):
-    """visibility windows (seconds) for each door state: hold shut, swing up, hold open, swing down."""
-    t_move, t_open = 1.1, 3.0
-    dt = t_move / (n - 1)
-    win = {i: [] for i in range(n)}
-    t0 = LOOP - (2 * t_move + t_open)              # time spent shut at the start
-    win[0].append((0, t0))
-    for i in range(1, n):                          # opening
-        s = t0 + (i - 1) * dt
-        win[i].append((s, s + dt if i < n - 1 else t0 + t_move + t_open))
-    tc = t0 + t_move + t_open
-    for k, i in enumerate(range(n - 2, -1, -1)):   # closing
-        s = tc + k * dt
-        win[i].append((s, s + dt if i > 0 else LOOP))
-    return win
+SPECS = [("MODEL", "Aventador LP 700-4"), ("ENGINE", "6.5L V12 · NA"), ("POWER", "700 CV"),
+         ("0-100", "2.9 s"), ("VMAX", "350 km/h"), ("DOORS", "scissor ▲")]
 
 
-def keyframes(name, windows):
-    pts = {0.0: 0}
-    for s, e in windows:
-        pts[s] = 1
-        pts.setdefault(e, 0)
-        if pts.get(e) == 1 and e != s:
-            pts[e] = 0
-    if 0.0 in [s for s, _ in windows]:
-        pts[0.0] = 1
-    pts.setdefault(LOOP, pts[max(pts)])
-    body = " ".join(f"{100 * t / LOOP:.3f}% {{ opacity: {v}; }}" for t, v in sorted(pts.items()))
-    return f"@keyframes {name} {{ {body} }}"
-
-
-def to_screen(c, r, x0, y0):
-    return x0 + (c + 0.5) * CW, y0 + (r + 0.5) * LH - FONT * 0.8
-
-
-def turntable(x0, y0):
-    """rotation-invariant floor rings: drawn once, not per frame."""
-    th = np.linspace(0, 2 * math.pi, 120)
-    parts = []
-    sh = np.stack([2.6 * np.cos(th), 1.25 * np.sin(th), np.zeros_like(th)], -1)
-    c, r = project(sh, VIEW)
-    parts.append('<polygon points="' + " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(*to_screen(c, r, x0, y0)))
-                 + '" fill="url(#floor)"/>')
-    for rad, op, dash in []:
-        pts = np.stack([rad * np.cos(th), rad * np.sin(th), np.zeros_like(th)], -1)
-        c, r = project(pts, VIEW)
-        poly = " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(*to_screen(c, r, x0, y0)))
-        extra = f' stroke-dasharray="{dash}"' if dash else ""
-        parts.append(f'<polygon{extra} points="{poly}" fill="none" stroke="url(#cg)" stroke-opacity="{op}" stroke-width="1.2"/>')
-    return "".join(parts)
-
-
-SPECS = [("MODEL", "Aventador SVJ"), ("ENGINE", "6.5L V12 · NA"), ("POWER", "770 CV"),
-         ("0-100", "2.8 s"), ("VMAX", "350+ km/h"), ("DOORS", "scissor ▲")]
-
-
-def build(states):
+def build(grid):
     t = THEMES["dark"]
     amber = PHOSPHOR["car"]
     g0, g1, g2 = t["car"]
-    pad, top = 22, HEADER + 6
-    cw_px, ch_px = COLS * CW, ROWS * LH
-    px = pad + cw_px + 18
-    width = round(px + 290 + 30)
-    height = round(top + ch_px + 18)
+    rows, cols = grid.shape
+    pad, top = 26, HEADER + 14
+    cw_px, ch_px = cols * CW, rows * LH
+    px = pad + cw_px + 30
+    width = round(px + 280 + 30)
+    height = round(top + ch_px + 30)
     y0 = top + FONT
-    S = np.stack(states)
-    same = np.all((S == S[0]) | (np.isnan(S) & np.isnan(S[0])), axis=0)   # cells the doors never touch
-    static = np.where(same, S[0], np.nan)
-    win = door_timeline(len(states))
-    dyn, kfs = [], []
-    for i, V in enumerate(states):
-        dyn.append(f'<g class="s s{i}">{layer_svg(np.where(same, np.nan, V), pad, y0)}</g>')
-        kfs.append(keyframes(f"k{i}", win[i]) + f" .s{i} {{ animation: k{i} {LOOP}s step-end infinite; }}")
-    frames_svg = f'<g>{layer_svg(static, pad, y0)}</g>' + "".join(dyn)
 
-    panel = [f'<text x="{px}" y="{top + 34}" class="hd">GARAGE.EXE</text>',
-             f'<text x="{px}" y="{top + 54}" class="dim">dream_car = load("aventador.bin")</text>']
-    y = top + 92
+    panel = [f'<text x="{px}" y="{top + 30}" class="hd">GARAGE.EXE</text>',
+             f'<text x="{px}" y="{top + 50}" class="dim">dream_car = load("aventador.bin")</text>']
+    y = top + 88
     for k, v in SPECS:
         panel.append(f'<text x="{px}" y="{y}" class="sk">{k}</text>'
-                     f'<text x="{px + 290}" y="{y}" class="sv" text-anchor="end">{esc(v)}</text>'
-                     f'<line x1="{px}" x2="{px + 290}" y1="{y + 9}" y2="{y + 9}" stroke="{t["rule"]}"/>')
+                     f'<text x="{px + 280}" y="{y}" class="sv" text-anchor="end">{esc(v)}</text>'
+                     f'<line x1="{px}" x2="{px + 280}" y1="{y + 9}" y2="{y + 9}" stroke="{t["rule"]}"/>')
         y += 30
-    y += 14
-    panel.append("".join(
-        f'<rect class="tach" x="{px + j * 12}" y="{y}" width="8" height="16" rx="1" '
-        f'fill="{amber if j < 19 else "#ff3b30"}" fill-opacity="{1 if j < 15 else .15}"/>' for j in range(24)))
-    panel.append(f'<text x="{px}" y="{y + 38}" class="dim">idle · 6.5L V12 · doors cycle every {LOOP:.0f}s</text>')
+    y += 16
+    panel.append("".join(f'<rect x="{px + j * 11.6:.1f}" y="{y}" width="7.6" height="14" rx="1" '
+                         f'fill="{amber if j < 19 else "#ff3b30"}" fill-opacity="{1 if j < 15 else .15}"/>' for j in range(24)))
+    panel.append(f'<text x="{px}" y="{y + 34}" class="dim">idle · garage door: open</text>')
 
-    defs = f'<radialGradient id="floor"><stop offset="0" stop-color="{g1}" stop-opacity=".16"/><stop offset=".6" stop-color="{g1}" stop-opacity=".05"/><stop offset="1" stop-color="{g1}" stop-opacity="0"/></radialGradient>' + f'<linearGradient id="cg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{g0}"/><stop offset=".5" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/></linearGradient>'
+    defs = (f'<linearGradient id="cg" gradientUnits="userSpaceOnUse" x1="{pad}" y1="{top}" x2="{pad + cw_px}" y2="{top + ch_px}">'
+            f'<stop offset="0" stop-color="{g0}"/><stop offset=".55" stop-color="{g1}"/><stop offset="1" stop-color="{g2}"/></linearGradient>'
+            f'<radialGradient id="floor"><stop offset="0" stop-color="{g1}" stop-opacity=".18"/><stop offset="1" stop-color="{g1}" stop-opacity="0"/></radialGradient>')
     style = f'''
-  .s {{ opacity: 0; }}
-  {" ".join(kfs)}
-  .t100 {{ fill: {g2}; }} .t50 {{ fill: {g2}; fill-opacity: .55; }} .t22 {{ fill: {g1}; fill-opacity: .45; }}
-  .tach {{ opacity: 1; }}
+  .cr {{ opacity: 0; animation: in .45s ease-out forwards; }}
+  @keyframes in {{ to {{ opacity: 1; }} }}
   .hd {{ font-size: 20px; font-weight: 700; fill: {amber}; letter-spacing: 3px; }}
   .sk {{ font-size: 12px; fill: {t["muted"]}; letter-spacing: 2px; }}
   .sv {{ font-size: 13px; fill: {g2}; font-weight: 700; }}
   .dim {{ font-size: 11px; fill: {t["muted"]}; }}'''
     body = f'''
-  {turntable(pad, y0)}
-  <g font-size="{FONT}px" font-weight="700">
-{frames_svg}
+  <ellipse cx="{pad + cw_px * 0.5:.0f}" cy="{top + ch_px * 0.93:.0f}" rx="{cw_px * 0.55:.0f}" ry="{ch_px * 0.12:.0f}" fill="url(#floor)"/>
+  <g font-size="{FONT}px" font-weight="700" fill="url(#cg)">
+{car_svg(grid, pad, y0)}
   </g>
   {"".join(panel)}'''
     return window("dark", width, height, "GARAGE // AVENTADOR.BIN", body, defs, style,
@@ -349,15 +115,8 @@ def build(states):
 
 
 def main():
-    states = []
-    for i in range(DOOR_STEPS):
-        u = i / (DOOR_STEPS - 1)
-        door = 0.5 - 0.5 * math.cos(math.pi * u)        # ease in/out
-        states.append(render(VIEW, door))
-        print(f"\rstate {i + 1}/{DOOR_STEPS}", end="", flush=True)
-    print()
     path = ROOT / "car_dark.svg"
-    path.write_text(build(states))
+    path.write_text(build(car_grid()))
     print(f"wrote {path.name} ({path.stat().st_size // 1024} KB)")
 
 

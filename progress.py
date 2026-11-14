@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-Progress card: your contribution year as a radar dial.
+Progress card: the contribution year as a retro LED matrix, plus a level-up XP bar.
 
-Every day of the last year is a spike around the dial (oldest at 12 o'clock, clockwise to
-today); a radar beam sweeps over it. Next to it: digital readouts and an oscilloscope trace
-of weekly activity. Writes progress_dark.svg.   Run: python progress.py
+Each day is a round LED (brighter = more contributions). Total contributions are XP
+toward the next developer level. It lights up once on load, then stays still.
+Writes progress_dark.svg.   Run: python progress.py
 """
-import math
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 
 from common import CFG, HEADER, PHOSPHOR, ROOT, THEMES, esc, github_data, window
 
-W, H = 1000, 500
-CX, CY = 250, 290            # dial centre
-R0, R1 = 74, 182             # inner ring, max spike radius
+W = 1000
+PITCH, R = 15.6, 5.0           # LED spacing and radius
+LEVELS = [(0, "BOOTING"), (25, "APPRENTICE"), (100, "BUILDER"), (250, "SHIPPER"),
+          (500, "ENGINEER"), (1000, "ARCHITECT"), (2500, "LEGEND")]
 
 
 def stats(cal):
@@ -23,89 +23,56 @@ def stats(cal):
     for c in counts:
         run = run + 1 if c else 0
         longest = max(longest, run)
-    cur, i = 0, len(counts) - 1
-    if i >= 0 and counts[i] == 0:
-        i -= 1
-    while i >= 0 and counts[i]:
-        cur, i = cur + 1, i - 1
-    wd = defaultdict(int)
+    months = defaultdict(int)
     for d, c in cal:
-        wd[date.fromisoformat(d).strftime("%a").upper()] += c
+        months[d[:7]] += c
     best = max(cal, key=lambda x: x[1]) if cal else ("", 0)
-    return {"total": sum(counts), "active": sum(1 for c in counts if c), "current": cur,
-            "longest": longest, "best": best, "weekday": max(wd, key=wd.get) if sum(counts) else "—"}
+    bm = max(months, key=months.get) if months else ""
+    return {"total": sum(counts), "active": sum(1 for c in counts if c), "longest": longest,
+            "best": best, "best_month": (bm, months.get(bm, 0))}
 
 
-def polar(r, a):
-    return CX + r * math.sin(a), CY - r * math.cos(a)
+def level(xp):
+    idx = max(i for i, (th, _) in enumerate(LEVELS) if xp >= th)
+    lo, name = LEVELS[idx]
+    hi, nxt = LEVELS[min(idx + 1, len(LEVELS) - 1)]
+    frac = 1.0 if hi == lo else (xp - lo) / (hi - lo)
+    return idx + 1, name, hi, nxt, frac
 
 
-def dial(cal, g):
-    n = len(cal)
-    mx = max((c for _, c in cal), default=0) or 1
+def led_matrix(cal, g, t, x0, y0):
+    if not cal:
+        return ""
+    start = date.fromisoformat(cal[0][0])
+    start -= timedelta(days=(start.weekday() + 1) % 7)            # weeks start on Sunday
+    mx = max(c for _, c in cal) or 1
+    cols = defaultdict(list)
+    month_at = {}
+    for d, c in cal:
+        dd = date.fromisoformat(d)
+        w, wd = (dd - start).days // 7, (dd.weekday() + 1) % 7
+        cols[w].append((wd, c))
+        if dd.day <= 7 and wd == 0:
+            month_at[w] = dd.strftime("%b").upper()
     out = []
-    # guide rings + crosshair
-    for r, op in [(R0, .5), (R0 + 36, .18), (R0 + 72, .18), (R1, .3)]:
-        out.append(f'<circle cx="{CX}" cy="{CY}" r="{r}" fill="none" stroke="{g[1]}" stroke-opacity="{op}" stroke-dasharray="{"" if op > .4 else "2 4"}"/>')
-    out.append(f'<path d="M{CX - R1 - 8} {CY}H{CX + R1 + 8}M{CX} {CY - R1 - 8}V{CY + R1 + 8}" stroke="{g[1]}" stroke-opacity=".12"/>')
-    # month ticks + labels
-    seen = set()
-    for i, (d, _) in enumerate(cal):
-        m = d[:7]
-        if d[8:] == "01" and i > 3:
-            seen.add(m)
-            a = 2 * math.pi * i / n
-            x1, y1 = polar(R1 + 2, a)
-            x2, y2 = polar(R1 + 9, a)
-            lx, ly = polar(R1 + 22, a)
-            out.append(f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{g[1]}" stroke-opacity=".6"/>')
-            out.append(f'<text x="{lx:.1f}" y="{ly + 4:.1f}" class="ml" text-anchor="middle">{date.fromisoformat(d).strftime("%b").upper()}</text>')
-    # day spikes
-    for i, (d, c) in enumerate(cal):
-        a = 2 * math.pi * (i + 0.5) / n
-        if c == 0:
-            x, y = polar(R0 + 3, a)
-            out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r=".9" fill="{g[0]}" fill-opacity=".35"/>')
-            continue
-        k = math.sqrt(c / mx)
-        x1, y1 = polar(R0 + 2, a)
-        x2, y2 = polar(R0 + 8 + k * (R1 - R0 - 10), a)
-        col = g[2] if k > 0.66 else g[1]
-        out.append(f'<line class="sp" x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="{col}" '
-                   f'stroke-width="2.4" stroke-linecap="round" style="animation-delay:{0.2 + i / n * 1.6:.2f}s"/>')
-        out.append(f'<circle cx="{x2:.1f}" cy="{y2:.1f}" r="2.4" fill="{g[2]}"/>')
-    # radar sweep: a fan of thin sectors fading behind the beam
-    fan = []
-    for j in range(14):
-        a0, a1 = -math.radians(j * 3 + 3), -math.radians(j * 3)
-        p0, p1 = polar(R1, a0), polar(R1, a1)
-        fan.append(f'<path d="M{CX} {CY}L{p0[0]:.1f} {p0[1]:.1f}A{R1} {R1} 0 0 1 {p1[0]:.1f} {p1[1]:.1f}Z" fill="{g[1]}" fill-opacity="{0.22 * (1 - j / 14):.3f}"/>')
-    tip = polar(R1, 0)
-    fan.append(f'<line x1="{CX}" y1="{CY}" x2="{tip[0]:.1f}" y2="{tip[1]:.1f}" stroke="{g[2]}" stroke-width="1.6"/>')
-    out.append(f'<g transform="rotate({360 * (n - 0.5) / n:.1f} {CX} {CY})">{"".join(fan)}</g>')   # beam parked on today
-    # today marker
-    tx, ty = polar(R0, 2 * math.pi * (n - 0.5) / n)
-    out.append(f'<circle cx="{tx:.1f}" cy="{ty:.1f}" r="7" fill="{g[2]}" fill-opacity=".18"/><circle cx="{tx:.1f}" cy="{ty:.1f}" r="3.5" fill="{g[2]}"/>')
+    for w, label in month_at.items():
+        out.append(f'<text x="{x0 + w * PITCH - R:.1f}" y="{y0 - 14}" class="ml">{label}</text>')
+    for i, wd in enumerate(("MON", "WED", "FRI")):
+        out.append(f'<text x="{x0 - 16}" y="{y0 + (1 + 2 * i) * PITCH + 3.5:.1f}" class="ml" text-anchor="end">{wd}</text>')
+    for w in sorted(cols):
+        leds = []
+        for wd, c in cols[w]:
+            cx, cy = x0 + w * PITCH, y0 + wd * PITCH
+            if c == 0:
+                leds.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{R}" fill="{t["dots"]}" fill-opacity=".9"/>')
+                continue
+            k = (c / mx) ** 0.5
+            col = g[2] if k > 0.7 else g[1] if k > 0.35 else g[0]
+            leds.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{R + 4}" fill="{col}" fill-opacity="{0.12 + 0.18 * k:.2f}"/>'
+                        f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{R}" fill="{col}"/>'
+                        f'<circle cx="{cx - 1.5:.1f}" cy="{cy - 1.6:.1f}" r="1.4" fill="#fff" fill-opacity=".55"/>')
+        out.append(f'<g class="col" style="animation-delay:{0.15 + w * 0.018:.3f}s">{"".join(leds)}</g>')
     return "\n".join(out)
-
-
-def scope(cal, g, x, y, w, h):
-    """oscilloscope trace of weekly totals."""
-    weeks = [sum(c for _, c in cal[i:i + 7]) for i in range(0, len(cal), 7)]
-    mx = max(weeks, default=0) or 1
-    grid = "".join(f'<line x1="{x + i * w / 10:.1f}" y1="{y}" x2="{x + i * w / 10:.1f}" y2="{y + h}" stroke="{g[1]}" stroke-opacity="{.25 if i % 5 == 0 else .08}"/>' for i in range(11))
-    grid += "".join(f'<line x1="{x}" y1="{y + i * h / 4:.1f}" x2="{x + w}" y2="{y + i * h / 4:.1f}" stroke="{g[1]}" stroke-opacity="{.25 if i == 2 else .08}"/>' for i in range(5))
-    n = len(weeks)
-    pts = []
-    for i, v in enumerate(weeks):          # square-ish pulses read like a logic analyser
-        px0, px1 = x + i * w / n, x + (i + 1) * w / n
-        py = y + h - 4 - (v / mx) * (h - 10)
-        pts += [(px0, py), (px1, py)]
-    d = "M" + " L".join(f"{a:.1f} {b:.1f}" for a, b in pts)
-    length = sum(math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1))
-    return f'''{grid}
-  <path d="{d}" fill="none" stroke="{g[0]}" stroke-opacity=".35" stroke-width="5" stroke-linejoin="round"/>
-  <path class="trace" d="{d}" fill="none" stroke="{g[2]}" stroke-width="1.6" stroke-linejoin="round" style="stroke-dasharray:{length:.0f};stroke-dashoffset:{length:.0f}"/>'''
 
 
 def build(gh):
@@ -114,50 +81,71 @@ def build(gh):
     green = PHOSPHOR["progress"]
     cal = gh["calendar"]
     st = stats(cal)
+    lvl, name, nxt_xp, nxt_name, frac = level(st["total"])
+
+    x0, y0 = 92, HEADER + 62
+    mat_h = 7 * PITCH
+    by = y0 + mat_h + 34                       # bottom section top
+    H = round(by + 128)
+
+    # legend
+    lx = x0 + 52 * PITCH - 5 * 14 - 34
+    legend = (f'<text x="{lx - 8}" y="{y0 + mat_h + 8}" class="ml" text-anchor="end">LESS</text>'
+              + "".join(f'<circle cx="{lx + i * 14}" cy="{y0 + mat_h + 4}" r="4.2" fill="{c}"/>'
+                        for i, c in enumerate([t["dots"], g[0], g[1], g[2]]))
+              + f'<text x="{lx + 4 * 14}" y="{y0 + mat_h + 8}" class="ml">MORE</text>')
+
+    # XP / level panel
+    segs, sw = 34, 13.2
+    lit = round(frac * segs)
+    bar = "".join(f'<rect class="seg" x="{x0 - 24 + i * sw:.1f}" y="{by + 54}" width="{sw - 3.2:.1f}" height="16" rx="2" '
+                  f'fill="{g[2] if i < lit else t["dots"]}" fill-opacity="{1 if i < lit else .9}" style="animation-delay:{0.9 + i * 0.03:.2f}s"/>'
+                  for i in range(segs))
+    xp_panel = f'''
+  <text x="{x0 - 24}" y="{by + 18}" class="lbl">DEVELOPER LEVEL</text>
+  <text x="{x0 - 24}" y="{by + 44}" class="lv">LVL {lvl:02d}<tspan class="lvn"> · {name}</tspan></text>
+  {bar}
+  <text x="{x0 - 24}" y="{by + 92}" class="xp">{st["total"]} / {nxt_xp} XP</text>
+  <text x="{x0 - 24 + segs * sw - 3:.1f}" y="{by + 92}" class="xp" text-anchor="end">NEXT ▸ LVL {lvl + 1:02d} · {nxt_name}</text>
+  <text x="{x0 - 24}" y="{by + 110}" class="ml">1 contribution = 1 XP · resets never</text>'''
+
     best_d, best_c = st["best"]
-    best = f"{best_c}" if best_c else "0"
-    best_when = date.fromisoformat(best_d).strftime("%b %d").upper() if best_c else "—"
+    bm, bmc = st["best_month"]
+    tiles = [("ACTIVE DAYS", st["active"], "of 365"),
+             ("LONGEST STREAK", st["longest"], "days"),
+             ("PEAK DAY", best_c, date.fromisoformat(best_d).strftime("%b %d").upper() if best_c else "—"),
+             ("BEST MONTH", bmc, date.fromisoformat(bm + "-01").strftime("%b %Y").upper() if bm else "—")]
+    tx0 = 560
+    tile_svg = []
+    for i, (label, val, sub) in enumerate(tiles):
+        x = tx0 + (i % 2) * 196
+        y = by + (i // 2) * 58
+        tile_svg.append(f'''<g class="tile" style="animation-delay:{0.6 + i * 0.1:.1f}s">
+    <rect x="{x}" y="{y}" width="184" height="50" rx="6" fill="{g[0]}" fill-opacity=".05" stroke="{g[1]}" stroke-opacity=".22"/>
+    <text x="{x + 12}" y="{y + 18}" class="lbl">{label}</text>
+    <text x="{x + 12}" y="{y + 40}" class="num">{esc(val)}<tspan class="sub">  {esc(sub)}</tspan></text></g>''')
 
-    centre = f'''
-  <text x="{CX}" y="{CY + 8}" class="big" text-anchor="middle">{st["total"]}</text>
-  <text x="{CX}" y="{CY + 30}" class="lbl" text-anchor="middle">COMMITS · 1 YR</text>'''
-
-    rx, ry = 520, HEADER + 56
-    tiles = [("ACTIVE DAYS", st["active"], ""), ("STREAK", st["current"], "d"),
-             ("LONGEST", st["longest"], "d"), ("PEAK DAY", best, best_when),
-             ("HOT DAY", st["weekday"], ""), ("REPOS", gh["profile"]["repos"], "")]
-    readouts = []
-    for i, (label, val, unit) in enumerate(tiles):
-        x = rx + (i % 3) * 152
-        y = ry + (i // 3) * 82
-        readouts.append(f'''<g class="ro" style="animation-delay:{0.4 + i * 0.12:.2f}s">
-    <rect x="{x}" y="{y}" width="140" height="68" rx="6" fill="{g[0]}" fill-opacity=".05" stroke="{g[1]}" stroke-opacity=".25"/>
-    <text x="{x + 12}" y="{y + 20}" class="lbl">{label}</text>
-    <text x="{x + 12}" y="{y + 54}" class="num">{esc(val)}<tspan class="unit"> {esc(unit)}</tspan></text></g>''')
-
-    sx, sy, sw, sh = rx, ry + 186, 444, 116
     first = date.fromisoformat(cal[0][0]).strftime("%b %Y").upper() if cal else ""
-    defs = ""
     style = f'''
-  .sp {{ opacity: 0; animation: grow .5s ease-out forwards; }}
-  @keyframes grow {{ to {{ opacity: 1; }} }}
-  .ro {{ opacity: 0; animation: grow .4s ease-out forwards; }}
-  .trace {{ animation: draw 2.4s ease-out .8s forwards; }}
-  @keyframes draw {{ to {{ stroke-dashoffset: 0; }} }}
-  .big {{ font-size: 46px; font-weight: 700; fill: {g[2]}; }}
-  .num {{ font-size: 26px; font-weight: 700; fill: {g[2]}; }}
-  .unit {{ font-size: 12px; fill: {g[1]}; font-weight: 400; }}
+  .col, .tile {{ opacity: 0; animation: on .35s ease-out forwards; }}
+  .seg {{ opacity: 0; animation: on .2s ease-out forwards; }}
+  @keyframes on {{ to {{ opacity: 1; }} }}
+  .ml {{ font-size: 10px; fill: {t["muted"]}; letter-spacing: 1.2px; }}
   .lbl {{ font-size: 10.5px; fill: {t["muted"]}; letter-spacing: 1.8px; }}
-  .ml {{ font-size: 10px; fill: {g[1]}; fill-opacity: .7; letter-spacing: 1px; }}'''
+  .lv {{ font-size: 22px; font-weight: 700; fill: {g[2]}; letter-spacing: 1px; }}
+  .lvn {{ fill: {green}; font-size: 16px; letter-spacing: 2px; }}
+  .xp {{ font-size: 12px; fill: {g[1]}; letter-spacing: 1px; }}
+  .num {{ font-size: 20px; font-weight: 700; fill: {g[2]}; }}
+  .sub {{ font-size: 11px; font-weight: 400; fill: {t["muted"]}; }}'''
     body = f'''
-  <text x="28" y="{HEADER + 20}" class="lbl">SIGNAL: {esc(CFG["username"])}.commits · SINCE {first} · each spike = one day</text>
-  {dial(cal, g)}
-  {centre}
-  {"".join(readouts)}
-  <text x="{sx}" y="{sy - 10}" class="lbl">WEEKLY SIGNAL · 52 WK</text>
-  <text x="{sx + sw}" y="{sy - 10}" class="lbl" text-anchor="end">UPDATED {esc(gh.get("fetched", ""))}</text>
-  {scope(cal, g, sx, sy, sw, sh)}'''
-    return window("dark", W, H, "PROGRESS // RADAR.LOG", body, defs, style, accent=green, tag="CRT-03 · P1 GREEN")
+  <text x="28" y="{HEADER + 20}" class="lbl">BUILD.LOG · {esc(CFG["username"])} · SINCE {first} · {st["total"]} CONTRIBUTIONS</text>
+  <text x="{W - 28}" y="{HEADER + 20}" class="lbl" text-anchor="end">UPDATED {esc(gh.get("fetched", ""))}</text>
+  {led_matrix(cal, g, t, x0, y0)}
+  {legend}
+  <line x1="28" x2="{W - 28}" y1="{by - 12}" y2="{by - 12}" stroke="{t["rule"]}" stroke-dasharray="2 4"/>
+  {xp_panel}
+  {"".join(tile_svg)}'''
+    return window("dark", W, H, "PROGRESS // BUILD.LOG", body, "", style, accent=green, tag="CRT-03 · P1 GREEN")
 
 
 def main():
