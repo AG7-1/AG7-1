@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="1000" height="314" viewBox="0 0 1000 314" font-family="'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', 'Courier New', monospace">
+<defs>
+  <clipPath id="scr"><rect x="6" y="6" width="988" height="302" rx="10"/></clipPath>
+  <pattern id="scan" width="4" height="3" patternUnits="userSpaceOnUse"><rect width="4" height="1.2" fill="#000" opacity=".28"/></pattern>
+  <radialGradient id="vig" cx="50%" cy="50%" r="75%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient>
+  <radialGradient id="glowbg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#89cff0" stop-opacity=".07"/><stop offset="1" stop-color="#89cff0" stop-opacity="0"/></radialGradient>
+  
+</defs>
+<style>
+  text { white-space: pre; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; opacity: 1 !important; } }
+  
+  .fade { opacity: 0; animation: fade .5s ease-out forwards; }
+  @keyframes fade { to { opacity: 1; } }
+  .lbl { font-size: 10.5px; fill: #566475; letter-spacing: 1.8px; }
+  .txt { font-size: 14px; fill: #c9d6e3; }
+  .dim { font-size: 12px; fill: #566475; }
+  .prompt { font-size: 15px; font-weight: 700; fill: #89cff0; }
+  .node { font-size: 13px; font-weight: 700; fill: #eef7ff; letter-spacing: 2px; }
+  .nsub { font-size: 10.5px; fill: #566475; }
+  .core { font-size: 15px; font-weight: 700; fill: #89cff0; letter-spacing: 3px; }
+</style>
+<rect width="1000" height="314" rx="14" fill="#05070a" stroke="#1c2633"/>
+<g clip-path="url(#scr)">
+  <rect x="6" y="6" width="988" height="302" fill="#0a0e14"/>
+  <rect x="6" y="6" width="988" height="302" fill="url(#glowbg)"/>
+  <text x="24" y="28" font-size="12" font-weight="700" fill="#89cff0" letter-spacing="1.5">▚ ABOUT // INTERESTS.SYS</text>
+  <text x="960" y="28" font-size="11" fill="#566475" text-anchor="end" letter-spacing="1.5">CRT-04 · P4 BLUE</text>
+  <circle class="live" cx="972" cy="24" r="4" fill="#89cff0"/>
+  <line x1="24" x2="976" y1="38" y2="38" stroke="#16202b" stroke-dasharray="2 4"/>
+  <text x="40" y="78" class="prompt">❯ whoami</text><text x="40" y="110" class="txt fade" style="animation-delay:0.20s">I'm Ajay, CS + Business at Northeastern ('29).</text><text x="40" y="134" class="txt fade" style="animation-delay:0.35s">I love cars and engineering, I'm into business,</text><text x="40" y="158" class="txt fade" style="animation-delay:0.50s">and I'm super interested in tech.</text><text x="40" y="182" class="txt fade" style="animation-delay:0.65s">I don't pick just one: I build things</text><text x="40" y="206" class="txt fade" style="animation-delay:0.80s">that combine all of them.</text><text x="40" y="240" class="dim fade" style="animation-delay:.9s">currently building: WaveWall · more on the way</text><path d="M634 100 L768 172" stroke="#89cff0" stroke-opacity=".35" stroke-dasharray="3 4"/><circle cx="678.2" cy="123.8" r="1.8" fill="#89cff0" fill-opacity=".7"/><circle cx="722.4" cy="147.5" r="1.8" fill="#89cff0" fill-opacity=".7"/><path d="M902 100 L768 172" stroke="#89cff0" stroke-opacity=".35" stroke-dasharray="3 4"/><circle cx="857.8" cy="123.8" r="1.8" fill="#89cff0" fill-opacity=".7"/><circle cx="813.6" cy="147.5" r="1.8" fill="#89cff0" fill-opacity=".7"/><path d="M634 244 L768 172" stroke="#89cff0" stroke-opacity=".35" stroke-dasharray="3 4"/><circle cx="678.2" cy="220.2" r="1.8" fill="#89cff0" fill-opacity=".7"/><circle cx="722.4" cy="196.5" r="1.8" fill="#89cff0" fill-opacity=".7"/><path d="M902 244 L768 172" stroke="#89cff0" stroke-opacity=".35" stroke-dasharray="3 4"/><circle cx="857.8" cy="220.2" r="1.8" fill="#89cff0" fill-opacity=".7"/><circle cx="813.6" cy="196.5" r="1.8" fill="#89cff0" fill-opacity=".7"/><g class="fade" style="animation-delay:0.40s">
+    <rect x="564" y="74" width="140" height="52" rx="8" fill="#0a0e14" stroke="#89cff0" stroke-opacity=".45"/>
+    <text x="634" y="97" class="node" text-anchor="middle">CARS</text>
+    <text x="634" y="115" class="nsub" text-anchor="middle">V12s, design, speed</text></g><g class="fade" style="animation-delay:0.52s">
+    <rect x="832" y="74" width="140" height="52" rx="8" fill="#0a0e14" stroke="#89cff0" stroke-opacity=".45"/>
+    <text x="902" y="97" class="node" text-anchor="middle">ENGINEERING</text>
+    <text x="902" y="115" class="nsub" text-anchor="middle">systems that work</text></g><g class="fade" style="animation-delay:0.64s">
+    <rect x="564" y="218" width="140" height="52" rx="8" fill="#0a0e14" stroke="#89cff0" stroke-opacity=".45"/>
+    <text x="634" y="241" class="node" text-anchor="middle">BUSINESS</text>
+    <text x="634" y="259" class="nsub" text-anchor="middle">markets &amp; trading</text></g><g class="fade" style="animation-delay:0.76s">
+    <rect x="832" y="218" width="140" height="52" rx="8" fill="#0a0e14" stroke="#89cff0" stroke-opacity=".45"/>
+    <text x="902" y="241" class="node" text-anchor="middle">TECH</text>
+    <text x="902" y="259" class="nsub" text-anchor="middle">apps &amp; software</text></g><g class="fade" style="animation-delay:1s">
+    <circle cx="768" cy="172" r="46" fill="#89cff0" fill-opacity=".07" stroke="#89cff0" stroke-opacity=".8"/>
+    <circle cx="768" cy="172" r="54" fill="none" stroke="#89cff0" stroke-opacity=".25" stroke-dasharray="2 4"/>
+    <text x="768" y="174" class="core" text-anchor="middle">BUILD</text>
+    <text x="768" y="190" class="nsub" text-anchor="middle">where they meet</text></g>
+  <path d="M30 44 H16 V58" fill="none" stroke="#89cff0" stroke-opacity=".55" stroke-width="1.5"/><path d="M970 44 H984 V58" fill="none" stroke="#89cff0" stroke-opacity=".55" stroke-width="1.5"/><path d="M30 298 H16 V284" fill="none" stroke="#89cff0" stroke-opacity=".55" stroke-width="1.5"/><path d="M970 298 H984 V284" fill="none" stroke="#89cff0" stroke-opacity=".55" stroke-width="1.5"/>
+  <rect x="6" y="6" width="988" height="302" fill="url(#scan)"/>
+  <rect x="6" y="6" width="988" height="302" fill="url(#vig)"/>
+</g>
+</svg>

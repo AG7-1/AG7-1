@@ -91,5 +91,79 @@
         ]
       ]
     }
-  ]
+  ],
+  "about": {
+    "bio": [
+      "I'm Ajay, CS + Business at Northeastern ('29).",
+      "I love cars and engineering, I'm into business,",
+      "and I'm super interested in tech.",
+      "I don't pick just one: I build things",
+      "that combine all of them."
+    ],
+    "tagline": "currently building: WaveWall · more on the way",
+    "interests": [
+      [
+        "CARS",
+        "V12s, design, speed"
+      ],
+      [
+        "ENGINEERING",
+        "systems that work"
+      ],
+      [
+        "BUSINESS",
+        "markets & trading"
+      ],
+      [
+        "TECH",
+        "apps & software"
+      ]
+    ]
+  },
+  "projects": [
+    {
+      "name": "WaveWall",
+      "status": "LIVE",
+      "tags": [
+        "Swift",
+        "macOS",
+        "Spotify API"
+      ],
+      "desc": [
+        "A live Mac wallpaper that moves with your music:",
+        "grainy gradients coloured by whatever's playing."
+      ]
+    },
+    {
+      "name": "NEXT_BUILD.exe",
+      "placeholder": true,
+      "desc": "cars × tech × business: loading…"
+    }
+  ],
+  "stack": {
+    "languages": [
+      "Swift",
+      "Python",
+      "Java",
+      "TypeScript",
+      "SQL"
+    ],
+    "web": [
+      "React",
+      "Node.js",
+      "HTML",
+      "CSS"
+    ],
+    "tools": [
+      "Git",
+      "Xcode",
+      "VS Code",
+      "Claude Code"
+    ],
+    "platforms": [
+      "macOS",
+      "iOS",
+      "Linux"
+    ]
+  }
 }

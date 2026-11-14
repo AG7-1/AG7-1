@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="1000" height="260" viewBox="0 0 1000 260" font-family="'JetBrains Mono', 'SF Mono', Menlo, Consolas, 'DejaVu Sans Mono', 'Courier New', monospace">
+<defs>
+  <clipPath id="scr"><rect x="6" y="6" width="988" height="248" rx="10"/></clipPath>
+  <pattern id="scan" width="4" height="3" patternUnits="userSpaceOnUse"><rect width="4" height="1.2" fill="#000" opacity=".28"/></pattern>
+  <radialGradient id="vig" cx="50%" cy="50%" r="75%"><stop offset=".55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".6"/></radialGradient>
+  <radialGradient id="glowbg" cx="50%" cy="45%" r="70%"><stop offset="0" stop-color="#c4b5fd" stop-opacity=".07"/><stop offset="1" stop-color="#c4b5fd" stop-opacity="0"/></radialGradient>
+  
+</defs>
+<style>
+  text { white-space: pre; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; opacity: 1 !important; } }
+  
+  .fade { opacity: 0; animation: fade .5s ease-out forwards; }
+  @keyframes fade { to { opacity: 1; } }
+  .lbl { font-size: 10.5px; fill: #566475; letter-spacing: 1.8px; }
+  .txt { font-size: 14px; fill: #c9d6e3; }
+  .dim { font-size: 12px; fill: #566475; }
+  .cat { font-size: 11px; fill: #566475; letter-spacing: 2.4px; }
+  .it { font-size: 12.5px; fill: #ede9fe; }
+</style>
+<rect width="1000" height="260" rx="14" fill="#05070a" stroke="#1c2633"/>
+<g clip-path="url(#scr)">
+  <rect x="6" y="6" width="988" height="248" fill="#0a0e14"/>
+  <rect x="6" y="6" width="988" height="248" fill="url(#glowbg)"/>
+  <text x="24" y="28" font-size="12" font-weight="700" fill="#c4b5fd" letter-spacing="1.5">▚ STACK // LOADOUT.CFG</text>
+  <text x="960" y="28" font-size="11" fill="#566475" text-anchor="end" letter-spacing="1.5">CRT-06 · VIOLET</text>
+  <circle class="live" cx="972" cy="24" r="4" fill="#c4b5fd"/>
+  <line x1="24" x2="976" y1="38" y2="38" stroke="#16202b" stroke-dasharray="2 4"/>
+  <text x="40" y="93" class="cat fade" style="animation-delay:0.15s">LANGUAGES</text><g class="fade" style="animation-delay:0.20s">
+    <rect x="200.0" y="78" width="65.0" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="200.0" y="78" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="233.5" y="94.5" class="it" text-anchor="middle">Swift</text></g><g class="fade" style="animation-delay:0.24s">
+    <rect x="275.0" y="78" width="72.8" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="275.0" y="78" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="312.4" y="94.5" class="it" text-anchor="middle">Python</text></g><g class="fade" style="animation-delay:0.28s">
+    <rect x="357.8" y="78" width="57.2" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="357.8" y="78" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="387.4" y="94.5" class="it" text-anchor="middle">Java</text></g><g class="fade" style="animation-delay:0.32s">
+    <rect x="425.0" y="78" width="104.0" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="425.0" y="78" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="478.0" y="94.5" class="it" text-anchor="middle">TypeScript</text></g><g class="fade" style="animation-delay:0.36s">
+    <rect x="539.0" y="78" width="49.4" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="539.0" y="78" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="564.7" y="94.5" class="it" text-anchor="middle">SQL</text></g><text x="40" y="133" class="cat fade" style="animation-delay:0.27s">WEB</text><g class="fade" style="animation-delay:0.32s">
+    <rect x="200.0" y="118" width="65.0" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="200.0" y="118" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="233.5" y="134.5" class="it" text-anchor="middle">React</text></g><g class="fade" style="animation-delay:0.36s">
+    <rect x="275.0" y="118" width="80.6" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="275.0" y="118" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="316.3" y="134.5" class="it" text-anchor="middle">Node.js</text></g><g class="fade" style="animation-delay:0.40s">
+    <rect x="365.6" y="118" width="57.2" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="365.6" y="118" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="395.2" y="134.5" class="it" text-anchor="middle">HTML</text></g><g class="fade" style="animation-delay:0.44s">
+    <rect x="432.8" y="118" width="49.4" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="432.8" y="118" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="458.5" y="134.5" class="it" text-anchor="middle">CSS</text></g><text x="40" y="173" class="cat fade" style="animation-delay:0.39s">TOOLS</text><g class="fade" style="animation-delay:0.44s">
+    <rect x="200.0" y="158" width="49.4" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="200.0" y="158" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="225.7" y="174.5" class="it" text-anchor="middle">Git</text></g><g class="fade" style="animation-delay:0.48s">
+    <rect x="259.4" y="158" width="65.0" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="259.4" y="158" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="292.9" y="174.5" class="it" text-anchor="middle">Xcode</text></g><g class="fade" style="animation-delay:0.52s">
+    <rect x="334.4" y="158" width="80.6" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="334.4" y="158" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="375.7" y="174.5" class="it" text-anchor="middle">VS Code</text></g><g class="fade" style="animation-delay:0.56s">
+    <rect x="425.0" y="158" width="111.8" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="425.0" y="158" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="481.9" y="174.5" class="it" text-anchor="middle">Claude Code</text></g><text x="40" y="213" class="cat fade" style="animation-delay:0.51s">PLATFORMS</text><g class="fade" style="animation-delay:0.56s">
+    <rect x="200.0" y="198" width="65.0" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="200.0" y="198" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="233.5" y="214.5" class="it" text-anchor="middle">macOS</text></g><g class="fade" style="animation-delay:0.60s">
+    <rect x="275.0" y="198" width="49.4" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="275.0" y="198" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="300.7" y="214.5" class="it" text-anchor="middle">iOS</text></g><g class="fade" style="animation-delay:0.64s">
+    <rect x="334.4" y="198" width="65.0" height="24" rx="4" fill="#c4b5fd" fill-opacity=".07" stroke="#c4b5fd" stroke-opacity=".38"/>
+    <rect x="334.4" y="198" width="3" height="24" rx="1" fill="#c4b5fd"/>
+    <text x="367.9" y="214.5" class="it" text-anchor="middle">Linux</text></g>
+  <path d="M30 44 H16 V58" fill="none" stroke="#c4b5fd" stroke-opacity=".55" stroke-width="1.5"/><path d="M970 44 H984 V58" fill="none" stroke="#c4b5fd" stroke-opacity=".55" stroke-width="1.5"/><path d="M30 244 H16 V230" fill="none" stroke="#c4b5fd" stroke-opacity=".55" stroke-width="1.5"/><path d="M970 244 H984 V230" fill="none" stroke="#c4b5fd" stroke-opacity=".55" stroke-width="1.5"/>
+  <rect x="6" y="6" width="988" height="248" fill="url(#scan)"/>
+  <rect x="6" y="6" width="988" height="248" fill="url(#vig)"/>
+</g>
+</svg>

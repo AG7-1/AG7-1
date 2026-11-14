@@ -3,7 +3,7 @@ on:
   schedule: [{ cron: "0 6 * * *" }]   # daily: refresh stats + 3D contribution city
   workflow_dispatch:
   push:
-    paths: [config.json, generate.py, progress.py, car.py, common.py, photo.png, car.png]
+    paths: [config.json, generate.py, progress.py, car.py, extras.py, common.py, photo.png, car.png, car_closed.png]
 permissions:
   contents: write
 jobs:
@@ -14,7 +14,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: pip install pillow numpy
-      - run: python generate.py && python progress.py
+      - run: python generate.py && python progress.py && python extras.py
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Re-render car only when its code changed
